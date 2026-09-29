@@ -3,6 +3,7 @@
     python -m app.cli create-admin <login>     # first admin account (asks for a password)
     python -m app.cli create-admin <login> --temporary   # prints a one-time password instead
     python -m app.cli reset-password <login>   # prints a new temporary password
+    python -m app.cli import-groups            # adds the groups from the EduPage timetable
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ import sys
 from app.config import get_settings
 from app.db import create_engine, create_session_factory, init_db, repo
 from app.db.models import StaffRole
+from app.services import edupage
 from app.services.passwords import normalize_username, password_problem
 
 
@@ -57,6 +59,30 @@ async def reset_password(login: str) -> None:
     print(f"Temporary password for {login!r}: {password}\nIt must be changed at the next sign-in.")
 
 
+async def import_groups() -> None:
+    settings = get_settings()
+    if not settings.edupage_url:
+        sys.exit("EDUPAGE_URL is empty")
+    try:
+        names = await edupage.fetch_group_names(settings.edupage_url)
+    except edupage.EdupageError as e:
+        sys.exit(f"Couldn't read EduPage: {e}")
+    engine = create_engine(settings.database_url)
+    await init_db(engine)
+    async with create_session_factory(engine)() as s:
+        result = await repo.import_groups(s, names)
+        await repo.audit(
+            s, "cli", "group.import", entity="group",
+            summary=f"EduPage: +{len(result.added)}", details={"added": ", ".join(result.added)} if result.added else None,
+        )
+        await s.commit()
+    await engine.dispose()
+    print(f"EduPage lists {len(names)} groups. Added {len(result.added)}: {', '.join(result.added) or '-'}")
+    print(f"Already here: {len(result.existing)}")
+    if result.missing:
+        print(f"Here but not on EduPage (kept): {', '.join(result.missing)}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -66,9 +92,12 @@ def main() -> None:
     p.add_argument("--temporary", action="store_true", help="generate a one-time password (changed at first sign-in)")
     p = sub.add_parser("reset-password", help="set a new temporary password")
     p.add_argument("login")
+    sub.add_parser("import-groups", help="add the groups from the EduPage timetable")
     args = parser.parse_args()
     if args.cmd == "create-admin":
         asyncio.run(create_admin(args.login, args.name, args.temporary))
+    elif args.cmd == "import-groups":
+        asyncio.run(import_groups())
     else:
         asyncio.run(reset_password(args.login))
 

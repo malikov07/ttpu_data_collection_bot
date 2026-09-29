@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import clsx from "clsx";
 import {
+  CloudDownload,
   Eye,
   EyeOff,
   MoreHorizontal,
@@ -97,6 +98,41 @@ function AddGroupsModal({ open, onClose }: { open: boolean; onClose: () => void 
           </div>
         )}
       </form>
+    </Modal>
+  );
+}
+
+type ImportResult = { added: string[]; existing: string[]; missing: string[] };
+
+function ImportResultModal({ result, onClose }: { result: ImportResult | null; onClose: () => void }) {
+  const { t } = useI18n();
+  const total = result ? result.added.length + result.existing.length : 0;
+  return (
+    <Modal
+      open={!!result}
+      onClose={onClose}
+      title={t("groups.import_title")}
+      footer={<Button onClick={onClose}>{t("action.close")}</Button>}
+    >
+      {result && (
+        <div className="space-y-4 text-sm">
+          {result.added.length ? (
+            <div>
+              <p className="font-medium text-emerald-700">{t("groups.import_added", { n: result.added.length })}</p>
+              <p className="mt-1.5 font-mono text-[13px] leading-relaxed text-slate-700">{result.added.join(", ")}</p>
+              {result.existing.length > 0 && <p className="mt-2 text-slate-500">{t("groups.import_existing", { n: result.existing.length })}</p>}
+            </div>
+          ) : (
+            <p className="text-slate-700">{t("groups.import_none", { n: total })}</p>
+          )}
+          {result.missing.length > 0 && (
+            <div className="rounded-lg bg-amber-50 p-3">
+              <p className="text-amber-800">{t("groups.import_missing", { n: result.missing.length })}</p>
+              <p className="mt-1.5 font-mono text-[13px] text-amber-900">{result.missing.join(", ")}</p>
+            </div>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }
@@ -231,6 +267,7 @@ export function GroupsPage() {
   const [renaming, setRenaming] = useState<Group | null>(null);
   const [deleting, setDeleting] = useState<Group | null>(null);
   const [leaderFor, setLeaderFor] = useState<number | null>(null);
+  const [imported, setImported] = useState<ImportResult | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["groups", { hidden: showHidden }],
@@ -249,6 +286,24 @@ export function GroupsPage() {
     },
     onError: (err) => toast.error(errorMessage(err, t)),
   });
+  const importEdupage = useMutation({
+    mutationFn: () => api.post<ImportResult>("/api/groups/import", {}),
+    onSuccess: (r) => {
+      refresh();
+      setImported(r);
+    },
+    onError: (err) => toast.error(errorMessage(err, t)),
+  });
+  const importButton = (
+    <Button
+      variant="secondary"
+      icon={<CloudDownload className="size-4" />}
+      loading={importEdupage.isPending}
+      onClick={() => importEdupage.mutate()}
+    >
+      {t("groups.import")}
+    </Button>
+  );
   const remove = useMutation({
     mutationFn: (g: Group) => api.delete<{ deleted: boolean }>(`/api/groups/${g.id}`),
     onSuccess: (r) => {
@@ -271,6 +326,7 @@ export function GroupsPage() {
                 <Switch checked={showHidden} onChange={setShowHidden} label={t("groups.show_hidden")} />
                 {t("groups.show_hidden")}
               </label>
+              {importButton}
               <Button icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
                 {t("groups.add")}
               </Button>
@@ -286,7 +342,16 @@ export function GroupsPage() {
           <EmptyState
             icon={<UsersRound className="size-6" />}
             title={t("groups.empty")}
-            action={user.is_admin && <Button icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>{t("groups.add")}</Button>}
+            action={
+              user.is_admin && (
+                <div className="flex flex-wrap justify-center gap-2">
+                  {importButton}
+                  <Button icon={<Plus className="size-4" />} onClick={() => setAdding(true)}>
+                    {t("groups.add")}
+                  </Button>
+                </div>
+              )
+            }
           />
         </Card>
       ) : (
@@ -306,6 +371,7 @@ export function GroupsPage() {
       )}
 
       <AddGroupsModal open={adding} onClose={() => setAdding(false)} />
+      <ImportResultModal result={imported} onClose={() => setImported(null)} />
       <RenameModal key={renaming?.id ?? "none"} group={renaming} onClose={() => setRenaming(null)} />
       <AccountFormModal
         key={leaderFor ?? "none"}

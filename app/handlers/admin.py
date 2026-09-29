@@ -20,6 +20,7 @@ from app.db import repo
 from app.db.models import Account, Group, StaffRole, Student, User
 from app.db.repo import Access
 from app.i18n import Translator, menu_buttons, variants
+from app.services import edupage
 from app.services.backup import run_backup
 from app.services.passwords import normalize_username
 from app.services.prefs import Prefs, load_prefs, save_prefs
@@ -88,17 +89,53 @@ async def cmd_backup(
 # ------------------------------------------------------------------ groups
 
 
-async def _groups_view(session: AsyncSession, _: Translator, page: int = 0):
+async def _groups_view(session: AsyncSession, _: Translator, settings: Settings, page: int = 0):
     groups = await repo.list_groups(session, active_only=False)
-    return _("admin.groups", n=len(groups)), kb.admin_groups_kb(_, groups, page)
+    return _("admin.groups", n=len(groups)), kb.admin_groups_kb(_, groups, page, edupage=bool(settings.edupage_url))
 
 
 @router.callback_query(AdminCb.filter(F.action == "groups"))
-async def on_groups(cb: CallbackQuery, callback_data: AdminCb, state: FSMContext, session: AsyncSession, _: Translator) -> None:
+async def on_groups(
+    cb: CallbackQuery, callback_data: AdminCb, state: FSMContext, session: AsyncSession, _: Translator, settings: Settings
+) -> None:
     await state.clear()
-    text, markup = await _groups_view(session, _, callback_data.page)
+    text, markup = await _groups_view(session, _, settings, callback_data.page)
     await cb.answer()
     await cb.message.edit_text(text, reply_markup=markup)
+
+
+@router.callback_query(AdminCb.filter(F.action == "edupage"))
+async def on_edupage_import(
+    cb: CallbackQuery, state: FSMContext, session: AsyncSession, access: Access, _: Translator, settings: Settings
+) -> None:
+    await state.clear()
+    await cb.answer()
+    if not settings.edupage_url:
+        return
+    await cb.message.edit_text(_("admin.edupage_loading"))
+    try:
+        names = await edupage.fetch_group_names(settings.edupage_url)
+    except edupage.EdupageError as e:
+        log.warning("EduPage import failed: %s", e)
+        text, markup = await _groups_view(session, _, settings)
+        await cb.message.edit_text(_("admin.edupage_failed") + "\n\n" + text, reply_markup=markup)
+        return
+    result = await repo.import_groups(session, names)
+    await repo.audit(
+        session, actor(access, cb.from_user.id), "group.import", entity="group",
+        summary=f"EduPage: +{len(result.added)}", details={"added": ", ".join(result.added)} if result.added else None,
+    )
+    await session.commit()
+    report = _(
+        "admin.edupage_done",
+        total=len(names),
+        added=escape(", ".join(result.added)) or "—",
+        existing=len(result.existing),
+    )
+    if result.missing:
+        report += "\n\n" + _("admin.edupage_missing", names=escape(", ".join(result.missing)))
+    text, markup = await _groups_view(session, _, settings)
+    await cb.message.edit_text(report + "\n\n" + text, reply_markup=markup)
 
 
 @router.callback_query(AdminCb.filter(F.action == "add_groups"))
@@ -109,7 +146,9 @@ async def on_add_groups(cb: CallbackQuery, state: FSMContext, _: Translator) -> 
 
 
 @router.message(AdminStates.add_groups, *TEXT)
-async def on_group_names(message: Message, state: FSMContext, session: AsyncSession, access: Access, _: Translator) -> None:
+async def on_group_names(
+    message: Message, state: FSMContext, session: AsyncSession, access: Access, _: Translator, settings: Settings
+) -> None:
     parsed = parse_group_names(message.text)
     if parsed.invalid:
         await message.answer(_("admin.groups_invalid", names=escape(", ".join(parsed.invalid))))
@@ -121,7 +160,7 @@ async def on_group_names(message: Message, state: FSMContext, session: AsyncSess
     await session.commit()
     await state.clear()
     await message.answer(_("admin.groups_added", added=escape(", ".join(added)) or "—", existing=escape(", ".join(existing)) or "—"))
-    text, markup = await _groups_view(session, _)
+    text, markup = await _groups_view(session, _, settings)
     await message.answer(text, reply_markup=markup)
 
 
@@ -207,7 +246,9 @@ async def on_group_delete(cb: CallbackQuery, callback_data: AdminCb, session: As
 
 
 @router.callback_query(AdminCb.filter(F.action == "gdel_ok"))
-async def on_group_delete_ok(cb: CallbackQuery, callback_data: AdminCb, session: AsyncSession, access: Access, _: Translator) -> None:
+async def on_group_delete_ok(
+    cb: CallbackQuery, callback_data: AdminCb, session: AsyncSession, access: Access, _: Translator, settings: Settings
+) -> None:
     group = await session.get(Group, callback_data.id)
     if group is None:
         await cb.answer()
@@ -220,7 +261,7 @@ async def on_group_delete_ok(cb: CallbackQuery, callback_data: AdminCb, session:
     )
     await session.commit()
     await cb.answer(_("admin.group_deleted") if deleted else _("admin.group_hidden_instead"), show_alert=not deleted)
-    text, markup = await _groups_view(session, _)
+    text, markup = await _groups_view(session, _, settings)
     await cb.message.edit_text(text, reply_markup=markup)
 
 

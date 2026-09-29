@@ -130,6 +130,10 @@ class GroupNames:
     invalid: list[str]
 
 
+def is_group_name(name: str) -> bool:
+    return bool(_GROUP_RE.match(name))
+
+
 def parse_group_names(raw: str) -> GroupNames:
     valid: list[str] = []
     invalid: list[str] = []

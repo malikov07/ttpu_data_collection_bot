@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # Files uploaded through the website (Telegram files stay on Telegram).
     uploads_dir: Path = BASE_DIR / "data" / "uploads"
 
+    # --- EduPage (public timetable; admins import group names from it) --------
+    edupage_url: str = "https://ttpu.edupage.org"
+
     # --- Backups ---------------------------------------------------------------
     backup_enabled: bool = True
     backup_dir: Path = BASE_DIR / "backups"

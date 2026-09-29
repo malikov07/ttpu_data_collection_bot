@@ -110,6 +110,21 @@ async def add_groups(session: AsyncSession, names: list[str]) -> tuple[list[str]
     return added, existing
 
 
+@dataclass(slots=True)
+class GroupImport:
+    added: list[str]
+    existing: list[str]
+    missing: list[str]  # active groups here that the source doesn't list (e.g. graduated)
+
+
+async def import_groups(session: AsyncSession, names: list[str]) -> GroupImport:
+    """Add groups from an outside list (EduPage). Nothing is hidden or deleted."""
+    added, existing = await add_groups(session, names)
+    listed = {n.upper() for n in names}
+    missing = [g.name for g in await list_groups(session) if g.name.upper() not in listed]
+    return GroupImport(added, existing, missing)
+
+
 async def remove_group(session: AsyncSession, group: Group) -> bool:
     """Delete an empty group; hide a group that has students.
 

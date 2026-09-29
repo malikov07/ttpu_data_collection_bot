@@ -1,6 +1,8 @@
-"""Groups: list (scoped), add, rename, hide/show, delete."""
+"""Groups: list (scoped), add, import from EduPage, rename, hide/show, delete."""
 
 from __future__ import annotations
+
+import logging
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
@@ -9,10 +11,12 @@ from sqlalchemy.orm import selectinload
 
 from app.db import repo
 from app.db.models import Account, Group, Staff, StaffRole, Student
+from app.services import edupage
 from app.services.validators import parse_group_names
-from app.web.deps import DB, AdminUser, StaffUser
+from app.web.deps import DB, AdminUser, SettingsDep, StaffUser
 from app.web.serializers import group_json
 
+log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/groups", tags=["groups"])
 
 
@@ -57,6 +61,25 @@ async def add_groups(body: GroupsCreate, user: AdminUser, session: DB) -> dict:
         await repo.audit(session, user.username, "group.add", entity="group", summary=", ".join(added))
     await session.commit()
     return {"added": added, "existing": existing, "invalid": parsed.invalid}
+
+
+@router.post("/import")
+async def import_from_edupage(user: AdminUser, session: DB, settings: SettingsDep) -> dict:
+    """Add the groups listed in the public EduPage timetable (nothing is removed)."""
+    if not settings.edupage_url:
+        raise HTTPException(status.HTTP_409_CONFLICT, "edupage_disabled")
+    try:
+        names = await edupage.fetch_group_names(settings.edupage_url)
+    except edupage.EdupageError as e:
+        log.warning("EduPage import failed: %s", e)
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "edupage_unavailable") from e
+    result = await repo.import_groups(session, names)
+    await repo.audit(
+        session, user.username, "group.import", entity="group",
+        summary=f"EduPage: +{len(result.added)}", details={"added": ", ".join(result.added)} if result.added else None,
+    )
+    await session.commit()
+    return {"added": result.added, "existing": result.existing, "missing": result.missing}
 
 
 class GroupPatch(BaseModel):

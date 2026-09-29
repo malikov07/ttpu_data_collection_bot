@@ -63,7 +63,7 @@ cp .env.example .env                       # set BOT_TOKEN and ADMIN_IDS
 1. Create the bot with [@BotFather](https://t.me/BotFather) and put the token in `BOT_TOKEN`.
 2. `ADMIN_IDS` (your Telegram ID, e.g. from [@userinfobot](https://t.me/userinfobot)) makes you an admin in the bot even before you have an account.
 3. Sign in at `http://localhost:8080` with the admin login you created. In the bot, send `/login` to connect your Telegram to the same account.
-4. **Groups → Add groups** (e.g. `SE-24-01, SE-24-02`). Students can now register.
+4. **Groups → Import from EduPage** adds every group in the university's public timetable (https://ttpu.edupage.org). You can also type names in **Add groups**. Students can now register.
 5. **Staff accounts → New account** for each tutor or group leader. You get a temporary password to hand over: the person must change it at the first sign-in, and sends `/login` to the bot to get the staff menus.
 
 For frontend development with hot reload, run `npm run dev` in `web/` and open `http://localhost:5173`. It proxies `/api` to the Python app on :8080.
@@ -80,6 +80,7 @@ cp .env.example .env     # BOT_TOKEN, ADMIN_IDS, DOMAIN, POSTGRES_PASSWORD, BACK
 mkdir -p backups && chown 1000:1000 backups
 docker compose up -d --build
 docker compose exec bot python -m app.cli create-admin admin
+docker compose exec bot python -m app.cli import-groups   # groups from EduPage
 docker compose logs -f bot
 ```
 
@@ -139,7 +140,7 @@ Server settings live in `.env` (see [.env.example](.env.example)). Admins can ch
 | Edit document number / expiry / PINFL, replace files | ✔ | |
 | Excel export (in the user's language) | ✔ | ✔ `/export` |
 | Delete students (admins) | ✔ | ✔ |
-| Groups, staff accounts, settings (admins) | ✔ | ✔ `/admin` |
+| Groups (incl. import from EduPage), staff accounts, settings (admins) | ✔ | ✔ `/admin` |
 | Activity log (admins) | ✔ | |
 
 ## Security
@@ -173,7 +174,7 @@ After changing `app/db/models.py`, create a migration with `.venv/bin/alembic re
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest          # 95 tests, including the real OCR/face models on synthetic images
+.venv/bin/python -m pytest          # 100 tests, including the real OCR/face models on synthetic images
 (cd web && npm run typecheck)       # frontend types and translation completeness
 ```
 

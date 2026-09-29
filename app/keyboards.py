@@ -251,7 +251,7 @@ def admin_panel_kb(_: Translator) -> InlineKeyboardMarkup:
     )
 
 
-def admin_groups_kb(_: Translator, groups: list[Group], page: int = 0) -> InlineKeyboardMarkup:
+def admin_groups_kb(_: Translator, groups: list[Group], page: int = 0, *, edupage: bool = True) -> InlineKeyboardMarkup:
     total = pages(len(groups), GROUPS_PER_PAGE)
     page = min(max(page, 0), total - 1)
     b = InlineKeyboardBuilder()
@@ -261,6 +261,8 @@ def admin_groups_kb(_: Translator, groups: list[Group], page: int = 0) -> Inline
     if nav := _nav(_, page, total, lambda p: AdminCb(action="groups", page=p).pack()):
         b.row(*nav)
     b.row(_btn(_("btn.add_groups"), AdminCb(action="add_groups").pack()))
+    if edupage:
+        b.row(_btn(_("btn.edupage_import"), AdminCb(action="edupage").pack()))
     b.row(_btn(_("btn.back"), AdminCb(action="panel").pack()))
     return b.as_markup()
 
