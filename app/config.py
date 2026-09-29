@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated
@@ -27,6 +28,14 @@ class Settings(BaseSettings):
     # Files uploaded through the website (Telegram files stay on Telegram).
     uploads_dir: Path = BASE_DIR / "data" / "uploads"
 
+    # --- Backups ---------------------------------------------------------------
+    backup_enabled: bool = True
+    backup_dir: Path = BASE_DIR / "backups"
+    backup_time: str = "03:00"  # every day, in TIMEZONE
+    backup_keep_days: int = 30
+    # Encrypts the archive (AES-256 zip). Strongly recommended: backups hold passport data.
+    backup_password: SecretStr | None = None
+
     # --- Website (staff panel) ----------------------------------------------
     web_enabled: bool = True
     web_host: str = "0.0.0.0"
@@ -51,6 +60,17 @@ class Settings(BaseSettings):
         if isinstance(v, int):
             return [v]
         return v
+
+    @field_validator("backup_time")
+    @classmethod
+    def _check_time(cls, v: str) -> str:
+        time.fromisoformat(v)  # HH:MM
+        return v
+
+    @field_validator("backup_password", mode="before")
+    @classmethod
+    def _empty_is_none(cls, v: object) -> object:
+        return None if v == "" else v
 
     @property
     def web_secure(self) -> bool:

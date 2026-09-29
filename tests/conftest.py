@@ -45,7 +45,10 @@ class RecordingSession(BaseSession):
         now = datetime.now(timezone.utc)
         if isinstance(method, methods.GetMe):
             return BOT_USER
-        if isinstance(method, (methods.SendMessage, methods.SendPhoto, methods.SendDocument)):
+        if isinstance(method, methods.SendDocument):
+            doc = Document(file_id=f"sent-{next(_ids)}", file_unique_id="u")
+            return Message(message_id=next(_ids), date=now, chat=chat, document=doc)
+        if isinstance(method, (methods.SendMessage, methods.SendPhoto)):
             return Message(message_id=next(_ids), date=now, chat=chat, text=getattr(method, "text", None))
         if isinstance(method, methods.SendMediaGroup):
             return [Message(message_id=next(_ids), date=now, chat=chat)]
@@ -113,6 +116,7 @@ def settings(tmp_path) -> Settings:
         admin_ids=[1],
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
         uploads_dir=tmp_path / "uploads",
+        backup_dir=tmp_path / "backups",
     )
 
 
@@ -198,7 +202,7 @@ async def h(settings, fake_vision):
     sessions = create_session_factory(engine)
     tg = RecordingSession()
     bot = Bot(token=settings.bot_token.get_secret_value(), session=tg)
-    dp = Dispatcher(storage=DbStorage(sessions), settings=settings)
+    dp = Dispatcher(storage=DbStorage(sessions), settings=settings, sessions=sessions)
     dp.update.outer_middleware(DbSessionMiddleware(sessions))
     dp.update.outer_middleware(UserContextMiddleware(settings))
     dp.include_routers(*ROUTERS)

@@ -310,4 +310,11 @@ TEXTS: dict[str, str] = {
     "cmd.export": "Excelga eksport",
     "cmd.logout": "Chiqish",
     "cmd.admin": "Boshqaruv paneli",
+    "cmd.backup": "Hozir zaxira nusxa",
+    "backup.started": "⏳ Zaxira nusxa tayyorlanmoqda…",
+    "backup.caption": "🗄 <b>Zaxira nusxa</b> · {name}\n👥 Talabalar: {students} · 🎓 Guruhlar: {groups} · {size}",
+    "backup.encrypted": "🔐 Shifrlangan. 7-Zip, WinRAR yoki Keka orqali zaxira paroli bilan oching (serverdagi BACKUP_PASSWORD).",
+    "backup.not_encrypted": "⚠️ Shifrlanmagan: serverda BACKUP_PASSWORD ni oʻrnating. Faylni hech kimga yubormang: unda shaxsiy maʼlumotlar bor.",
+    "backup.too_big": "Fayl Telegram chegarasidan (50 MB) katta, shuning uchun faqat serverda saqlanadi.",
+    "backup.failed": "❌ Zaxira nusxa yaratilmadi. Server loglarini tekshiring.",
 }

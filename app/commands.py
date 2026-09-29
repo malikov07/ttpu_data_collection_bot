@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 STUDENT_COMMANDS = ("start", "language", "help", "cancel")
 STAFF_COMMANDS = ("start", "students", "find", "export", "language", "help", "logout", "cancel")
-ADMIN_COMMANDS = ("start", "admin", "students", "find", "export", "language", "help", "logout", "cancel")
+ADMIN_COMMANDS = ("start", "admin", "students", "find", "export", "backup", "language", "help", "logout", "cancel")
 
 
 def _commands(lang: Language, names: tuple[str, ...]) -> list[BotCommand]:

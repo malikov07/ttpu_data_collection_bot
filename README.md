@@ -72,10 +72,12 @@ Forgot a password? Another admin can reset it on the website, or run `.venv/bin/
 
 ## Production (Docker, HTTPS)
 
-You need a small server (1 vCPU / 2 GB RAM is enough; the OCR models use about 300 MB) and a domain pointing at it.
+You need a small server (2 vCPU / 2 GB RAM is enough; the OCR models use about 300 MB) and a domain pointing at it.
 
 ```bash
-cp .env.example .env     # BOT_TOKEN, ADMIN_IDS, DOMAIN, POSTGRES_PASSWORD
+git clone https://github.com/malikov07/ttpu_data_collection_bot.git /opt/ttpu && cd /opt/ttpu
+cp .env.example .env     # BOT_TOKEN, ADMIN_IDS, DOMAIN, POSTGRES_PASSWORD, BACKUP_PASSWORD
+mkdir -p backups && chown 1000:1000 backups
 docker compose up -d --build
 docker compose exec bot python -m app.cli create-admin admin
 docker compose logs -f bot
@@ -84,9 +86,37 @@ docker compose logs -f bot
 Compose runs three services:
 - **bot:** the Telegram bot and the website, in one container.
 - **db:** PostgreSQL.
-- **caddy:** gets an HTTPS certificate for `DOMAIN` automatically.
+- **caddy:** gets an HTTPS certificate for `DOMAIN` automatically (once its DNS A record points at the server).
 
-Database migrations run automatically on start. Run only **one** instance per bot token. Back up the `pgdata` and `uploads` volumes.
+Database migrations run automatically on start. Run only **one** instance per bot token: stop the bot on your laptop before starting it on the server.
+
+**Updating:** `cd /opt/ttpu && git pull && docker compose up -d --build`.
+
+## Backups
+
+Every day at `BACKUP_TIME` (03:00 Tashkent time by default) the bot:
+
+1. dumps the database (`database.sql`) and the files staff uploaded on the website (`uploads/`) into one zip, **encrypted with `BACKUP_PASSWORD`** (AES-256);
+2. saves it on the server in `/opt/ttpu/backups/` and deletes backups older than `BACKUP_KEEP_DAYS` (30);
+3. sends it to every admin in Telegram (`ADMIN_IDS` and admin accounts connected with `/login`).
+
+Admins can make one at any time with **/backup** in the bot. If a backup fails, admins get a message.
+
+Open a backup with **7-Zip** (Windows), **Keka** (macOS) or `7z x file.zip` (Linux) and the backup password. Windows' built-in zip can't open AES-encrypted archives.
+
+Students' photos, passports and CVs sent through the bot stay on Telegram's servers; the database keeps their file ids, which work with this bot's token. Keep the token.
+
+**Restore** (replaces the current database):
+
+```bash
+cd /opt/ttpu
+7z x backups/ttpu-backup-2026-01-31_0300.zip -o/tmp/restore     # asks for the backup password
+docker compose stop bot
+docker compose exec -T db psql -U bot -d ttpu_bot < /tmp/restore/database.sql
+docker compose cp /tmp/restore/uploads/. bot:/app/data/uploads/   # if the archive has uploads
+docker compose start bot
+rm -rf /tmp/restore
+```
 
 ## Configuration
 
@@ -143,7 +173,7 @@ After changing `app/db/models.py`, create a migration with `.venv/bin/alembic re
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest          # 90 tests, including the real OCR/face models on synthetic images
+.venv/bin/python -m pytest          # 95 tests, including the real OCR/face models on synthetic images
 (cd web && npm run typecheck)       # frontend types and translation completeness
 ```
 

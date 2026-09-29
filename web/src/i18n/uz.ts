@@ -162,6 +162,7 @@ export const uz: Record<MessageKey, string> = {
   "act.auth.password_change": "Parolini oʻzgartirdi",
   "act.student.register": "Telegram orqali roʻyxatdan oʻtdi",
   "act.student.update": "Telegram orqali maʼlumotlarini yangiladi",
+  "act.backup.create": "Zaxira nusxa yaratildi",
   "act.student.edit": "Talaba maʼlumotlarini tahrirladi",
   "act.student.delete": "Talabani oʻchirdi",
   "act.document.view": "Hujjatni koʻrdi",

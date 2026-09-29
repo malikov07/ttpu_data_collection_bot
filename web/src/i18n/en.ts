@@ -160,6 +160,7 @@ export const en = {
   "act.auth.password_change": "Changed their password",
   "act.student.register": "Registered via Telegram",
   "act.student.update": "Updated their data via Telegram",
+  "act.backup.create": "Created a backup",
   "act.student.edit": "Edited student",
   "act.student.delete": "Deleted student",
   "act.document.view": "Viewed a document",

@@ -313,4 +313,11 @@ TEXTS: dict[str, str] = {
     "cmd.export": "Excel export",
     "cmd.logout": "Sign out",
     "cmd.admin": "Admin panel",
+    "cmd.backup": "Backup now",
+    "backup.started": "⏳ Making a backup…",
+    "backup.caption": "🗄 <b>Backup</b> · {name}\n👥 Students: {students} · 🎓 Groups: {groups} · {size}",
+    "backup.encrypted": "🔐 Encrypted. Open it with 7-Zip, WinRAR or Keka using the backup password (BACKUP_PASSWORD on the server).",
+    "backup.not_encrypted": "⚠️ Not encrypted: set BACKUP_PASSWORD on the server. Keep this file private: it holds personal data.",
+    "backup.too_big": "It is bigger than Telegram allows (50 MB), so it is kept only on the server.",
+    "backup.failed": "❌ The backup failed. Check the server logs.",
 }

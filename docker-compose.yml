@@ -1,25 +1,35 @@
 # Bot + staff website + PostgreSQL, with Caddy for automatic HTTPS.
-# Set DOMAIN (e.g. students.ttpu.uz) and point its DNS A record at this server.
+# Set DOMAIN (e.g. ttpu.example.uz) and point its DNS A record at this server.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   bot:
     build: .
     restart: unless-stopped
     env_file: .env
     environment:
-      DATABASE_URL: postgresql+asyncpg://bot:${POSTGRES_PASSWORD:-bot}@db:5432/ttpu_bot
-      WEB_BASE_URL: https://${DOMAIN:-localhost}
+      DATABASE_URL: postgresql+asyncpg://bot:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/ttpu_bot
+      WEB_BASE_URL: https://${DOMAIN:?set DOMAIN in .env}
+      BACKUP_DIR: /app/backups
     volumes:
       - uploads:/app/data/uploads
+      # Daily backups, visible on the server in ./backups (owned by uid 1000)
+      - ./backups:/app/backups
     depends_on:
       db:
         condition: service_healthy
+    logging: *logging
 
   db:
-    image: postgres:16-alpine
+    image: postgres:17-alpine  # same major version as pg_dump in the bot image
     restart: unless-stopped
     environment:
       POSTGRES_USER: bot
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ttpu_bot
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -27,6 +37,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U bot -d ttpu_bot"]
       interval: 5s
       retries: 10
+    logging: *logging
 
   caddy:
     image: caddy:2-alpine
@@ -34,15 +45,19 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
     environment:
-      DOMAIN: ${DOMAIN:-localhost}
+      DOMAIN: ${DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
+      - caddy_config:/config
     depends_on:
       - bot
+    logging: *logging
 
 volumes:
   pgdata:
   uploads:
   caddy_data:
+  caddy_config:

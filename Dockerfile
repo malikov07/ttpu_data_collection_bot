@@ -6,7 +6,7 @@ RUN npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
-# --- 2. Python app (bot + web API + sync worker) -------------------------------
+# --- 2. Python app (bot + web API + backups) ------------------------------------
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -15,9 +15,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
-# Runtime libraries used by OpenCV / ONNX Runtime
+# Runtime libraries used by OpenCV / ONNX Runtime; pg_dump for backups
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 \
+    && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install -r requirements.txt
@@ -27,7 +27,7 @@ COPY alembic.ini ./
 COPY --from=web /web/dist ./web/dist
 
 RUN useradd --create-home --uid 1000 bot \
-    && mkdir -p /app/data/uploads /app/secrets \
+    && mkdir -p /app/data/uploads /app/backups \
     && chown -R bot:bot /app
 USER bot
 

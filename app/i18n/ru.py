@@ -310,4 +310,11 @@ TEXTS: dict[str, str] = {
     "cmd.export": "Экспорт в Excel",
     "cmd.logout": "Выйти",
     "cmd.admin": "Панель управления",
+    "cmd.backup": "Резервная копия сейчас",
+    "backup.started": "⏳ Создаю резервную копию…",
+    "backup.caption": "🗄 <b>Резервная копия</b> · {name}\n👥 Студентов: {students} · 🎓 Групп: {groups} · {size}",
+    "backup.encrypted": "🔐 Зашифрована. Откройте её в 7-Zip, WinRAR или Keka паролем резервных копий (BACKUP_PASSWORD на сервере).",
+    "backup.not_encrypted": "⚠️ Не зашифрована: задайте BACKUP_PASSWORD на сервере. Не пересылайте файл: в нём персональные данные.",
+    "backup.too_big": "Файл больше лимита Telegram (50 МБ), поэтому он хранится только на сервере.",
+    "backup.failed": "❌ Не удалось создать резервную копию. Проверьте логи сервера.",
 }

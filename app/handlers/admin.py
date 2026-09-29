@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from html import escape
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app import keyboards as kb
 from app.callbacks import AdminCb
@@ -19,6 +20,7 @@ from app.db import repo
 from app.db.models import Account, Group, StaffRole, Student, User
 from app.db.repo import Access
 from app.i18n import Translator, menu_buttons, variants
+from app.services.backup import run_backup
 from app.services.passwords import normalize_username
 from app.services.prefs import Prefs, load_prefs, save_prefs
 from app.services.validators import parse_group_names
@@ -66,6 +68,21 @@ async def on_panel(cb: CallbackQuery, state: FSMContext, session: AsyncSession, 
     await cb.answer()
     prefs = await load_prefs(session, settings)
     await cb.message.edit_text(await render_panel(session, _, prefs), reply_markup=kb.admin_panel_kb(_))
+
+
+@router.message(Command("backup"))
+async def cmd_backup(
+    message: Message, user: User, _: Translator, settings: Settings, bot: Bot, sessions: async_sessionmaker[AsyncSession]
+) -> None:
+    status = await message.answer(_("backup.started"))
+    try:
+        await run_backup(bot, settings, sessions, chat_ids=[user.id])
+    except Exception:
+        log.exception("Manual backup failed")
+        await message.answer(_("backup.failed"))
+    finally:
+        with contextlib.suppress(Exception):
+            await status.delete()
 
 
 # ------------------------------------------------------------------ groups

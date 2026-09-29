@@ -22,6 +22,7 @@ from app.handlers import admin, common, registration, staff
 from app.i18n import t
 from app.middlewares import DbSessionMiddleware, UserContextMiddleware
 from app.services import vision
+from app.services.backup import backup_loop
 from app.services.documents import cleanup_uploads
 
 log = logging.getLogger("app")
@@ -76,7 +77,7 @@ async def main() -> None:
         token=settings.bot_token.get_secret_value(),
         default=DefaultBotProperties(parse_mode=ParseMode.HTML, link_preview_is_disabled=True),
     )
-    dp = Dispatcher(storage=DbStorage(session_factory), settings=settings)
+    dp = Dispatcher(storage=DbStorage(session_factory), settings=settings, sessions=session_factory)
     dp.update.outer_middleware(DbSessionMiddleware(session_factory))
     dp.update.outer_middleware(UserContextMiddleware(settings))
     # Order matters: generic handlers (cancel, /start) first, catch-all last.
@@ -93,6 +94,11 @@ async def main() -> None:
         # Load the OCR / face models now rather than on the first student's photo.
         background.append(asyncio.create_task(asyncio.to_thread(vision.warm_up), name="vision-warm-up"))
         background.append(asyncio.create_task(cleanup_loop(session_factory, settings), name="uploads-cleanup"))
+        if settings.backup_enabled:
+            background.append(asyncio.create_task(backup_loop(bot, settings, session_factory), name="backups"))
+            log.info("Daily backup at %s (%s) into %s", settings.backup_time, settings.timezone, settings.backup_dir)
+            if not settings.backup_password:
+                log.warning("BACKUP_PASSWORD is not set: backups are NOT encrypted")
 
         if not settings.web_enabled:
             await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

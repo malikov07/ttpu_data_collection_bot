@@ -162,6 +162,7 @@ export const ru: Record<MessageKey, string> = {
   "act.auth.password_change": "Сменил(а) пароль",
   "act.student.register": "Регистрация через Telegram",
   "act.student.update": "Обновление данных через Telegram",
+  "act.backup.create": "Создана резервная копия",
   "act.student.edit": "Изменение данных студента",
   "act.student.delete": "Удаление студента",
   "act.document.view": "Просмотр документа",
