@@ -1,0 +1,8 @@
+# HTTPS certificates are obtained automatically for {$DOMAIN}.
+{$DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 110MB
+	}
+	reverse_proxy bot:8080
+}
