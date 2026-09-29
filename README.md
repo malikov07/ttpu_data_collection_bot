@@ -119,6 +119,17 @@ docker compose start bot
 rm -rf /tmp/restore
 ```
 
+## Bot profile
+
+The bot's name, "About" text and description are in the translation files (`bot.name`, `bot.short_description`, `bot.description`) and are set in all three languages when the bot starts; only changed values are sent to Telegram.
+
+The profile picture is `branding/avatar.svg` (rendered as `branding/avatar.png`). To upload it (or another image):
+
+```bash
+.venv/bin/python -m app.cli set-profile-photo              # branding/avatar.png
+.venv/bin/python -m app.cli set-profile-photo other.jpg
+```
+
 ## Configuration
 
 Server settings live in `.env` (see [.env.example](.env.example)). Admins can change these on the website (**Settings**) or in the bot (`/admin` → Settings) without a restart:
@@ -174,7 +185,7 @@ After changing `app/db/models.py`, create a migration with `.venv/bin/alembic re
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest          # 100 tests, including the real OCR/face models on synthetic images
+.venv/bin/python -m pytest          # 108 tests, including the real OCR/face models on synthetic images
 (cd web && npm run typecheck)       # frontend types and translation completeness
 ```
 

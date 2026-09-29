@@ -4,6 +4,7 @@
     python -m app.cli create-admin <login> --temporary   # prints a one-time password instead
     python -m app.cli reset-password <login>   # prints a new temporary password
     python -m app.cli import-groups            # adds the groups from the EduPage timetable
+    python -m app.cli set-profile-photo [image] # the bot's profile photo (default: branding/avatar.png)
 """
 
 from __future__ import annotations
@@ -11,9 +12,11 @@ from __future__ import annotations
 import argparse
 import asyncio
 import getpass
+import io
 import sys
+from pathlib import Path
 
-from app.config import get_settings
+from app.config import BASE_DIR, get_settings
 from app.db import create_engine, create_session_factory, init_db, repo
 from app.db.models import StaffRole
 from app.services import edupage
@@ -83,6 +86,26 @@ async def import_groups() -> None:
         print(f"Here but not on EduPage (kept): {', '.join(result.missing)}")
 
 
+async def set_profile_photo(path: Path) -> None:
+    from aiogram import Bot
+    from aiogram.types import BufferedInputFile, InputProfilePhotoStatic
+    from PIL import Image
+
+    if not path.is_file():
+        sys.exit(f"No such file: {path}")
+    with Image.open(path) as img:  # Telegram wants a JPEG
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, "JPEG", quality=95)
+    bot = Bot(get_settings().bot_token.get_secret_value())
+    try:
+        photo = InputProfilePhotoStatic(photo=BufferedInputFile(buf.getvalue(), filename="avatar.jpg"))
+        await bot.set_my_profile_photo(photo=photo)
+        me = await bot.me()
+    finally:
+        await bot.session.close()
+    print(f"Profile photo of @{me.username} updated.")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -93,11 +116,15 @@ def main() -> None:
     p = sub.add_parser("reset-password", help="set a new temporary password")
     p.add_argument("login")
     sub.add_parser("import-groups", help="add the groups from the EduPage timetable")
+    p = sub.add_parser("set-profile-photo", help="set the bot's profile photo")
+    p.add_argument("image", nargs="?", type=Path, default=BASE_DIR / "branding" / "avatar.png")
     args = parser.parse_args()
     if args.cmd == "create-admin":
         asyncio.run(create_admin(args.login, args.name, args.temporary))
     elif args.cmd == "import-groups":
         asyncio.run(import_groups())
+    elif args.cmd == "set-profile-photo":
+        asyncio.run(set_profile_photo(args.image))
     else:
         asyncio.run(reset_password(args.login))
 

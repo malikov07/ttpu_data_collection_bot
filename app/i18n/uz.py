@@ -306,6 +306,10 @@ TEXTS: dict[str, str] = {
     "btn.toggle_registration": "{mark} Roʻyxatdan oʻtishni qabul qilish",
     "btn.toggle_notify": "{mark} Guruh sardorlarini xabardor qilish",
     # ---------------------------------------------------------------- commands
+    # Bot profile (set on startup): name ≤64, short description ≤120, description ≤512
+    "bot.name": "TTPU talaba maʼlumotlari",
+    "bot.short_description": "TTPU talabasi maʼlumotlarini 3 daqiqada topshiring: pasport rasmi, telefon, guruh, 3×4 rasm va rezyume. 🔒 Maxfiy.",
+    "bot.description": "🎓 Toshkent shahridagi Turin politexnika universiteti talabalari maʼlumotlarini yigʻish.\n\n⏱ Taxminan 3 daqiqa:\n🪪 pasport yoki ID-kartangizni rasmga oling: maʼlumotlar avtomatik toʻldiriladi\n📱 telefon raqamingizni yuboring\n🎓 guruhingizni tanlang\n🖼 3×4 rasm va rezyumeni yuboring\n\n🔒 Hujjatlar oʻz serverimizda qayta ishlanadi va uchinchi tomon yoki sunʼiy intellekt xizmatlariga yuborilmaydi.\n\nBoshlash uchun pastdagi tugmani bosing.",
     "cmd.start": "Asosiy menyu",
     "cmd.language": "Tilni oʻzgartirish",
     "cmd.help": "Yordam",

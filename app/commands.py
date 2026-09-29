@@ -1,4 +1,4 @@
-"""Telegram command menus (the '/' button), localized and per role."""
+"""Telegram command menus (the '/' button) and the bot's profile texts, localized."""
 
 from __future__ import annotations
 
@@ -27,6 +27,27 @@ async def setup_default_commands(bot: Bot) -> None:
     await bot.set_my_commands(_commands(DEFAULT_LANGUAGE, STUDENT_COMMANDS), scope=BotCommandScopeDefault())
     for lang in Language:
         await bot.set_my_commands(_commands(lang, STUDENT_COMMANDS), scope=BotCommandScopeDefault(), language_code=lang.value)
+
+
+async def setup_profile(bot: Bot) -> None:
+    """Name, short description ("About") and description ("What can this bot do?")
+    in every language; the default is shown to users of other languages.
+
+    Only changed values are sent: Telegram rate-limits these calls heavily.
+    """
+    for lang in (None, *Language):
+        texts = lambda key: t(lang or DEFAULT_LANGUAGE, key)  # noqa: E731
+        code = lang.value if lang else None
+        try:
+            if (await bot.get_my_name(language_code=code)).name != texts("bot.name"):
+                await bot.set_my_name(name=texts("bot.name"), language_code=code)
+            if (await bot.get_my_short_description(language_code=code)).short_description != texts("bot.short_description"):
+                await bot.set_my_short_description(short_description=texts("bot.short_description"), language_code=code)
+            if (await bot.get_my_description(language_code=code)).description != texts("bot.description"):
+                await bot.set_my_description(description=texts("bot.description"), language_code=code)
+        except TelegramAPIError as e:  # e.g. "Too Many Requests": try again at the next start
+            log.warning("Could not update the bot profile (%s): %s", code or "default", e)
+            return
 
 
 async def set_user_commands(bot: Bot, chat_id: int, lang: Language | None, access: Access) -> None:

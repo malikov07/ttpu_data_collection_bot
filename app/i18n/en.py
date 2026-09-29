@@ -309,6 +309,10 @@ TEXTS: dict[str, str] = {
     "btn.toggle_registration": "{mark} Accept registrations",
     "btn.toggle_notify": "{mark} Notify group leaders",
     # ---------------------------------------------------------------- commands
+    # Bot profile (set on startup): name ≤64, short description ≤120, description ≤512
+    "bot.name": "TTPU Student Data",
+    "bot.short_description": "Submit your TTPU student data in about 3 minutes: passport photo, phone, group, 3×4 photo and CV. 🔒 Private.",
+    "bot.description": "🎓 Student data collection for Turin Polytechnic University in Tashkent.\n\n⏱ Takes about 3 minutes:\n🪪 photograph your passport or ID card: your details fill in automatically\n📱 share your phone number\n🎓 choose your group\n🖼 send a 3×4 photo and your CV\n\n🔒 Documents are read on our own server and are never sent to third-party or AI services.\n\nTap the button below to start.",
     "cmd.start": "Main menu",
     "cmd.language": "Change language",
     "cmd.help": "Help",

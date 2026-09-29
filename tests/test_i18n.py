@@ -45,3 +45,42 @@ def test_button_labels_unique_per_language():
 def test_translator_formats():
     assert "7" in Translator("en")("reg.cv", max=7)
     assert variants("btn.students") == {"👥 Students", "👥 Talabalar", "👥 Студенты"}
+
+
+def test_bot_profile_texts_fit_telegram_limits():
+    from app.i18n import t
+
+    for lang in Language:
+        assert 0 < len(t(lang, "bot.name")) <= 64
+        assert 0 < len(t(lang, "bot.short_description")) <= 120
+        assert 0 < len(t(lang, "bot.description")) <= 512
+
+
+async def test_profile_is_only_updated_when_it_changed():
+    from aiogram import Bot, methods
+    from aiogram.types import BotDescription, BotName, BotShortDescription
+
+    from app.commands import setup_profile
+    from app.i18n import t
+    from tests.conftest import RecordingSession
+
+    class Session(RecordingSession):
+        async def make_request(self, bot, method, timeout=None):
+            self.requests.append(method)
+            lang = method.language_code if hasattr(method, "language_code") else None
+            current = lambda key: t(lang or "uz", key) if lang != "ru" else "old"  # noqa: E731
+            if isinstance(method, methods.GetMyName):
+                return BotName(name=current("bot.name"))
+            if isinstance(method, methods.GetMyShortDescription):
+                return BotShortDescription(short_description=current("bot.short_description"))
+            if isinstance(method, methods.GetMyDescription):
+                return BotDescription(description=current("bot.description"))
+            return True
+
+    session = Session()
+    await setup_profile(Bot("123456:TEST", session=session))
+    sets = [r for r in session.requests if type(r).__name__.startswith("SetMy")]
+    assert {(type(r).__name__, r.language_code) for r in sets} == {
+        ("SetMyName", "ru"), ("SetMyShortDescription", "ru"), ("SetMyDescription", "ru"),
+    }
+    assert sets[0].name == "TTPU: данные студентов"

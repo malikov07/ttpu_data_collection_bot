@@ -13,7 +13,7 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import ErrorEvent
 
-from app.commands import set_user_commands, setup_default_commands
+from app.commands import set_user_commands, setup_default_commands, setup_profile
 from app.config import get_settings
 from app.db import create_engine, create_session_factory, init_db
 from app.db.fsm_storage import DbStorage
@@ -94,6 +94,7 @@ async def main() -> None:
         # Load the OCR / face models now rather than on the first student's photo.
         background.append(asyncio.create_task(asyncio.to_thread(vision.warm_up), name="vision-warm-up"))
         background.append(asyncio.create_task(cleanup_loop(session_factory, settings), name="uploads-cleanup"))
+        background.append(asyncio.create_task(setup_profile(bot), name="bot-profile"))
         if settings.backup_enabled:
             background.append(asyncio.create_task(backup_loop(bot, settings, session_factory), name="backups"))
             log.info("Daily backup at %s (%s) into %s", settings.backup_time, settings.timezone, settings.backup_dir)
