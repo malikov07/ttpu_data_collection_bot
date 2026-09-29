@@ -130,6 +130,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             <LogOut className="size-4" />
           </IconButton>
         </div>
+        <p className="px-2 text-[10px] text-brand-300/70">{t("app.credit")}</p>
       </div>
     </div>
   );

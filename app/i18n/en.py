@@ -50,6 +50,7 @@ TEXTS: dict[str, str] = {
         "Press the button below to agree and start."
     ),
     "btn.consent": "✅ Agree and start",
+    "credit": "Made by Malikov Bekzod",
     "welcome.back": "👋 Welcome back, <b>{name}</b>!",
     "welcome.staff": "👋 Hello, <b>{name}</b>!\n{roles}",
     "role.admin": "🛡 Administrator",

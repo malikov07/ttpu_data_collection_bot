@@ -59,6 +59,7 @@ export const en = {
   "login.failed": "Wrong login or password.",
   "login.too_many": "Too many attempts. Wait 15 minutes and try again.",
   "login.footer": "All sign-ins are logged. Student data is confidential.",
+  "app.credit": "Made by Malikov Bekzod",
 
   "password.title": "Change password",
   "password.forced": "You signed in with a temporary password. Choose your own password to continue.",
