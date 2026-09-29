@@ -60,13 +60,13 @@ router.callback_query.filter(is_staff)
 # ------------------------------------------------------------------ lists
 
 
-async def render_groups(session: AsyncSession, access: Access, _: Translator, page: int = 0) -> tuple[str, InlineKeyboardMarkup | None]:
+async def render_groups(session: AsyncSession, access: Access, _: Translator, program: str = "") -> tuple[str, InlineKeyboardMarkup | None]:
     stats = await repo.list_group_stats(session, access.visible_group_ids())
     if not stats:
         return _("staff.no_groups"), None
     return (
         _("staff.groups", students=sum(s.students for s in stats), groups=len(stats)),
-        kb.staff_groups_kb(_, stats, page),
+        kb.staff_groups_kb(_, stats, program),
     )
 
 
@@ -96,7 +96,7 @@ async def cmd_students(message: Message, state: FSMContext, session: AsyncSessio
 
 @router.callback_query(StaffCb.filter(F.action == "groups"))
 async def on_groups(cb: CallbackQuery, callback_data: StaffCb, session: AsyncSession, access: Access, _: Translator) -> None:
-    text, markup = await render_groups(session, access, _, callback_data.page)
+    text, markup = await render_groups(session, access, _, callback_data.value)
     await cb.answer()
     await cb.message.edit_text(text, reply_markup=markup)
 
@@ -329,11 +329,11 @@ async def on_edit_gender(
     await send_card(bot, cb.message.chat.id, await repo.get_student(session, student.id), access, _, settings)
 
 
-@router.callback_query(StaffCb.filter(F.action == "egpage"))
-async def on_edit_group_page(cb: CallbackQuery, callback_data: StaffCb, session: AsyncSession, access: Access, _: Translator) -> None:
+@router.callback_query(StaffCb.filter(F.action == "egprog"))
+async def on_edit_group_program(cb: CallbackQuery, callback_data: StaffCb, session: AsyncSession, access: Access, _: Translator) -> None:
     groups = await repo.list_groups(session, ids=access.visible_group_ids())
     await cb.answer()
-    await cb.message.edit_reply_markup(reply_markup=kb.staff_group_pick_kb(_, groups, callback_data.student_id, callback_data.page))
+    await cb.message.edit_reply_markup(reply_markup=kb.staff_group_pick_kb(_, groups, callback_data.student_id, callback_data.value))
 
 
 @router.callback_query(StaffCb.filter(F.action == "egroup"))
@@ -357,8 +357,9 @@ async def on_edit_group(
     await cb.answer(_("staff.saved"))
     with contextlib.suppress(Exception):
         await cb.message.delete()
+    student_id = student.id  # read before expire_all(): expired attributes can't lazy-load here
     session.expire_all()
-    await send_card(bot, cb.message.chat.id, await repo.get_student(session, student.id), access, _, settings)
+    await send_card(bot, cb.message.chat.id, await repo.get_student(session, student_id), access, _, settings)
 
 
 # ------------------------------------------------------------------ delete (admins)

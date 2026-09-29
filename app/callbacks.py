@@ -19,14 +19,14 @@ class EditFieldCb(CallbackData, prefix="ef"):
 
 
 class GroupPickCb(CallbackData, prefix="gp"):
-    # page | pick
+    # prog (open a program; "" = the programs list) | pick
     action: str
     group_id: int = 0
-    page: int = 0
+    program: str = ""
 
 
 class StaffCb(CallbackData, prefix="st"):
-    # groups | group | card | doc | close | edit | efield | egender | egroup | egpage | del | del_ok
+    # groups | group | card | doc | close | edit | efield | egender | egroup | egprog | del | del_ok
     action: str
     group_id: int = 0
     student_id: int = 0
@@ -36,7 +36,7 @@ class StaffCb(CallbackData, prefix="st"):
 
 class AdminCb(CallbackData, prefix="adm"):
     # panel | groups | add_groups | group | rename | toggle | gdel | gdel_ok
-    # | accounts | account | new | role | agroup | skipname | reset | active | adel | adel_ok
+    # | accounts | account | new | role | agroup | agroup_prog | skipname | reset | active | adel | adel_ok
     # | settings | set
     action: str
     id: int = 0

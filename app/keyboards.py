@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import Callable
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
@@ -11,7 +12,6 @@ from app.db.models import Account, Group, Language, StaffRole, Student
 from app.db.repo import Access, GroupStat
 from app.i18n import Translator, t
 
-GROUPS_PER_PAGE = 24
 STUDENTS_PER_PAGE = 10
 
 
@@ -34,6 +34,57 @@ def _nav(_: Translator, page: int, total_pages: int, make: Callable[[int], str])
 
 def inline(*rows: list[InlineKeyboardButton]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[r for r in rows if r])
+
+
+# ------------------------------------------------------------------ group picker
+
+# Up to this many groups fit on one screen; more are split by program first
+# (IT, SE, CYB…), like the university's timetable.
+FLAT_LIMIT = 12
+
+
+def program_of(group_name: str) -> str:
+    """"IT1-26" -> "IT", "MSc_MBA-26" -> "MSc"."""
+    m = re.match(r"[A-Za-z]+", group_name)
+    return m.group(0) if m else group_name
+
+
+def group_sort_key(group_name: str) -> tuple:
+    """Newest intake first: IT1-26, IT2-26, …, IT1-25 (the year follows the first dash)."""
+    m = re.search(r"-(\d+)", group_name)
+    return (-int(m.group(1)) if m else 0, group_name.upper())
+
+
+def group_picker(
+    _: Translator,
+    groups: list[Group],
+    program: str,
+    *,
+    pick: Callable[[Group], str],
+    open_program: Callable[[str], str],
+    label: Callable[[Group], str] = lambda g: g.name,
+    columns: int = 3,
+) -> list[list[InlineKeyboardButton]]:
+    """Rows for choosing a group: programs first when there are many groups.
+
+    ``program`` is the open program ("" = the programs screen); ``open_program``
+    makes the callback data for a program button ("" goes back to programs).
+    """
+    programs = sorted({program_of(g.name) for g in groups}, key=str.upper)
+
+    def chunk(buttons: list[InlineKeyboardButton], n: int) -> list[list[InlineKeyboardButton]]:
+        return [buttons[i : i + n] for i in range(0, len(buttons), n)]
+
+    def group_rows(items: list[Group]) -> list[list[InlineKeyboardButton]]:
+        items = sorted(items, key=lambda g: group_sort_key(g.name))
+        return chunk([_btn(label(g), pick(g)) for g in items], columns)
+
+    if len(groups) <= FLAT_LIMIT or len(programs) == 1:
+        return group_rows(groups)
+    if program not in programs:
+        return chunk([_btn(p, open_program(p)) for p in programs], 4)
+    rows = group_rows([g for g in groups if program_of(g.name) == program])
+    return [*rows, [_btn(_("btn.programs"), open_program(""))]]
 
 
 # ------------------------------------------------------------------ menus
@@ -114,18 +165,16 @@ def phone_kb(_: Translator) -> ReplyKeyboardMarkup:
     )
 
 
-def group_pick_kb(_: Translator, groups: list[Group], page: int = 0, *, extra: list[InlineKeyboardButton] | None = None) -> InlineKeyboardMarkup:
-    total = pages(len(groups), GROUPS_PER_PAGE)
-    page = min(max(page, 0), total - 1)
-    b = InlineKeyboardBuilder()
-    for g in groups[page * GROUPS_PER_PAGE : (page + 1) * GROUPS_PER_PAGE]:
-        b.button(text=g.name, callback_data=GroupPickCb(action="pick", group_id=g.id))
-    b.adjust(3)
-    if nav := _nav(_, page, total, lambda p: GroupPickCb(action="page", page=p).pack()):
-        b.row(*nav)
-    if extra:
-        b.row(*extra)
-    return b.as_markup()
+def group_pick_kb(_: Translator, groups: list[Group], program: str = "") -> InlineKeyboardMarkup:
+    return inline(
+        *group_picker(
+            _,
+            groups,
+            program,
+            pick=lambda g: GroupPickCb(action="pick", group_id=g.id).pack(),
+            open_program=lambda p: GroupPickCb(action="prog", program=p).pack(),
+        )
+    )
 
 
 def pages_kb(_: Translator) -> InlineKeyboardMarkup:
@@ -153,16 +202,19 @@ def edit_fields_kb(_: Translator) -> InlineKeyboardMarkup:
 # ------------------------------------------------------------------ staff
 
 
-def staff_groups_kb(_: Translator, stats: list[GroupStat], page: int = 0) -> InlineKeyboardMarkup:
-    total = pages(len(stats), GROUPS_PER_PAGE)
-    page = min(max(page, 0), total - 1)
-    b = InlineKeyboardBuilder()
-    for st in stats[page * GROUPS_PER_PAGE : (page + 1) * GROUPS_PER_PAGE]:
-        b.button(text=f"{st.group.name}  ·  {st.students}", callback_data=StaffCb(action="group", group_id=st.group.id))
-    b.adjust(2)
-    if nav := _nav(_, page, total, lambda p: StaffCb(action="groups", page=p).pack()):
-        b.row(*nav)
-    return b.as_markup()
+def staff_groups_kb(_: Translator, stats: list[GroupStat], program: str = "") -> InlineKeyboardMarkup:
+    counts = {st.group.id: st.students for st in stats}
+    return inline(
+        *group_picker(
+            _,
+            [st.group for st in stats],
+            program,
+            pick=lambda g: StaffCb(action="group", group_id=g.id).pack(),
+            open_program=lambda p: StaffCb(action="groups", value=p).pack(),
+            label=lambda g: f"{g.name} · {counts[g.id]}",
+            columns=2,
+        )
+    )
 
 
 def staff_group_kb(
@@ -174,7 +226,7 @@ def staff_group_kb(
     if nav := _nav(_, page, pages(total, STUDENTS_PER_PAGE), lambda p: StaffCb(action="group", group_id=group.id, page=p).pack()):
         b.row(*nav)
     if show_back:
-        b.row(_btn(_("btn.back"), StaffCb(action="groups").pack()))
+        b.row(_btn(_("btn.back"), StaffCb(action="groups", value=program_of(group.name)).pack()))
     return b.as_markup()
 
 
@@ -215,17 +267,15 @@ def gender_pick_kb(_: Translator, student_id: int) -> InlineKeyboardMarkup:
     )
 
 
-def staff_group_pick_kb(_: Translator, groups: list[Group], student_id: int, page: int = 0) -> InlineKeyboardMarkup:
-    total = pages(len(groups), GROUPS_PER_PAGE)
-    page = min(max(page, 0), total - 1)
-    b = InlineKeyboardBuilder()
-    for g in groups[page * GROUPS_PER_PAGE : (page + 1) * GROUPS_PER_PAGE]:
-        b.button(text=g.name, callback_data=StaffCb(action="egroup", student_id=student_id, group_id=g.id))
-    b.adjust(3)
-    if nav := _nav(_, page, total, lambda p: StaffCb(action="egpage", student_id=student_id, page=p).pack()):
-        b.row(*nav)
-    b.row(_btn(_("btn.cancel"), "cancel"))
-    return b.as_markup()
+def staff_group_pick_kb(_: Translator, groups: list[Group], student_id: int, program: str = "") -> InlineKeyboardMarkup:
+    rows = group_picker(
+        _,
+        groups,
+        program,
+        pick=lambda g: StaffCb(action="egroup", student_id=student_id, group_id=g.id).pack(),
+        open_program=lambda p: StaffCb(action="egprog", student_id=student_id, value=p).pack(),
+    )
+    return inline(*rows, [_btn(_("btn.cancel"), "cancel")])
 
 
 def confirm_kb(_: Translator, yes: str, no: str) -> InlineKeyboardMarkup:
@@ -251,30 +301,30 @@ def admin_panel_kb(_: Translator) -> InlineKeyboardMarkup:
     )
 
 
-def admin_groups_kb(_: Translator, groups: list[Group], page: int = 0, *, edupage: bool = True) -> InlineKeyboardMarkup:
-    total = pages(len(groups), GROUPS_PER_PAGE)
-    page = min(max(page, 0), total - 1)
-    b = InlineKeyboardBuilder()
-    for g in groups[page * GROUPS_PER_PAGE : (page + 1) * GROUPS_PER_PAGE]:
-        b.button(text=g.name if g.is_active else f"🙈 {g.name}", callback_data=AdminCb(action="group", id=g.id, page=page))
-    b.adjust(3)
-    if nav := _nav(_, page, total, lambda p: AdminCb(action="groups", page=p).pack()):
-        b.row(*nav)
-    b.row(_btn(_("btn.add_groups"), AdminCb(action="add_groups").pack()))
+def admin_groups_kb(_: Translator, groups: list[Group], program: str = "", *, edupage: bool = True) -> InlineKeyboardMarkup:
+    rows = group_picker(
+        _,
+        groups,
+        program,
+        pick=lambda g: AdminCb(action="group", id=g.id).pack(),
+        open_program=lambda p: AdminCb(action="groups", value=p).pack(),
+        label=lambda g: g.name if g.is_active else f"🙈 {g.name}",
+    )
+    rows.append([_btn(_("btn.add_groups"), AdminCb(action="add_groups").pack())])
     if edupage:
-        b.row(_btn(_("btn.edupage_import"), AdminCb(action="edupage").pack()))
-    b.row(_btn(_("btn.back"), AdminCb(action="panel").pack()))
-    return b.as_markup()
+        rows.append([_btn(_("btn.edupage_import"), AdminCb(action="edupage").pack())])
+    rows.append([_btn(_("btn.back"), AdminCb(action="panel").pack())])
+    return inline(*rows)
 
 
-def admin_group_kb(_: Translator, group: Group, page: int) -> InlineKeyboardMarkup:
+def admin_group_kb(_: Translator, group: Group) -> InlineKeyboardMarkup:
     return inline(
         [
-            _btn(_("btn.rename"), AdminCb(action="rename", id=group.id, page=page).pack()),
-            _btn(_("btn.hide") if group.is_active else _("btn.show"), AdminCb(action="toggle", id=group.id, page=page).pack()),
+            _btn(_("btn.rename"), AdminCb(action="rename", id=group.id).pack()),
+            _btn(_("btn.hide") if group.is_active else _("btn.show"), AdminCb(action="toggle", id=group.id).pack()),
         ],
-        [_btn(_("btn.delete"), AdminCb(action="gdel", id=group.id, page=page).pack())],
-        [_btn(_("btn.back"), AdminCb(action="groups", page=page).pack())],
+        [_btn(_("btn.delete"), AdminCb(action="gdel", id=group.id).pack())],
+        [_btn(_("btn.back"), AdminCb(action="groups", value=program_of(group.name)).pack())],
     )
 
 
@@ -317,17 +367,15 @@ def role_title(_: Translator, role: StaffRole) -> str:
     return text.split(":")[0].strip()
 
 
-def admin_group_pick_kb(_: Translator, groups: list[Group], page: int = 0) -> InlineKeyboardMarkup:
-    total = pages(len(groups), GROUPS_PER_PAGE)
-    page = min(max(page, 0), total - 1)
-    b = InlineKeyboardBuilder()
-    for g in groups[page * GROUPS_PER_PAGE : (page + 1) * GROUPS_PER_PAGE]:
-        b.button(text=g.name, callback_data=AdminCb(action="agroup", id=g.id))
-    b.adjust(3)
-    if nav := _nav(_, page, total, lambda p: AdminCb(action="agroup_page", page=p).pack()):
-        b.row(*nav)
-    b.row(_btn(_("btn.cancel"), "cancel"))
-    return b.as_markup()
+def admin_group_pick_kb(_: Translator, groups: list[Group], program: str = "") -> InlineKeyboardMarkup:
+    rows = group_picker(
+        _,
+        groups,
+        program,
+        pick=lambda g: AdminCb(action="agroup", id=g.id).pack(),
+        open_program=lambda p: AdminCb(action="agroup_prog", value=p).pack(),
+    )
+    return inline(*rows, [_btn(_("btn.cancel"), "cancel")])
 
 
 def admin_settings_kb(_: Translator, *, registration_open: bool, notify_leaders: bool) -> InlineKeyboardMarkup:

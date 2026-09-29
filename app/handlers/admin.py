@@ -89,9 +89,9 @@ async def cmd_backup(
 # ------------------------------------------------------------------ groups
 
 
-async def _groups_view(session: AsyncSession, _: Translator, settings: Settings, page: int = 0):
+async def _groups_view(session: AsyncSession, _: Translator, settings: Settings, program: str = ""):
     groups = await repo.list_groups(session, active_only=False)
-    return _("admin.groups", n=len(groups)), kb.admin_groups_kb(_, groups, page, edupage=bool(settings.edupage_url))
+    return _("admin.groups", n=len(groups)), kb.admin_groups_kb(_, groups, program, edupage=bool(settings.edupage_url))
 
 
 @router.callback_query(AdminCb.filter(F.action == "groups"))
@@ -99,7 +99,7 @@ async def on_groups(
     cb: CallbackQuery, callback_data: AdminCb, state: FSMContext, session: AsyncSession, _: Translator, settings: Settings
 ) -> None:
     await state.clear()
-    text, markup = await _groups_view(session, _, settings, callback_data.page)
+    text, markup = await _groups_view(session, _, settings, callback_data.value)
     await cb.answer()
     await cb.message.edit_text(text, reply_markup=markup)
 
@@ -164,10 +164,10 @@ async def on_group_names(
     await message.answer(text, reply_markup=markup)
 
 
-async def _group_card(session: AsyncSession, _: Translator, group: Group, page: int):
+async def _group_card(session: AsyncSession, _: Translator, group: Group):
     n = await repo.count_students(session, group.id)
     status = _("admin.group_active") if group.is_active else _("admin.group_hidden")
-    return _("admin.group_card", group=escape(group.name), n=n, status=status), kb.admin_group_kb(_, group, page)
+    return _("admin.group_card", group=escape(group.name), n=n, status=status), kb.admin_group_kb(_, group)
 
 
 @router.callback_query(AdminCb.filter(F.action == "group"))
@@ -176,7 +176,7 @@ async def on_group(cb: CallbackQuery, callback_data: AdminCb, session: AsyncSess
     await cb.answer()
     if group is None:
         return
-    text, markup = await _group_card(session, _, group, callback_data.page)
+    text, markup = await _group_card(session, _, group)
     await cb.message.edit_text(text, reply_markup=markup)
 
 
@@ -192,7 +192,7 @@ async def on_group_toggle(cb: CallbackQuery, callback_data: AdminCb, session: As
         summary=group.name, details={"is_active": [not group.is_active, group.is_active]},
     )
     await session.commit()
-    text, markup = await _group_card(session, _, group, callback_data.page)
+    text, markup = await _group_card(session, _, group)
     await cb.message.edit_text(text, reply_markup=markup)
 
 
@@ -227,7 +227,7 @@ async def on_rename_value(message: Message, state: FSMContext, session: AsyncSes
     )
     await session.commit()
     await state.clear()
-    text, markup = await _group_card(session, _, group, 0)
+    text, markup = await _group_card(session, _, group)
     await message.answer(text, reply_markup=markup)
 
 
@@ -240,7 +240,7 @@ async def on_group_delete(cb: CallbackQuery, callback_data: AdminCb, session: As
     await cb.message.edit_text(
         _("admin.group_delete_confirm", group=escape(group.name)),
         reply_markup=kb.confirm_kb(
-            _, yes=AdminCb(action="gdel_ok", id=group.id).pack(), no=AdminCb(action="group", id=group.id, page=callback_data.page).pack()
+            _, yes=AdminCb(action="gdel_ok", id=group.id).pack(), no=AdminCb(action="group", id=group.id).pack()
         ),
     )
 
@@ -431,10 +431,10 @@ async def on_new_role(cb: CallbackQuery, callback_data: AdminCb, state: FSMConte
     await _create(cb, state, session, access, _, role, None)
 
 
-@router.callback_query(AdminCb.filter(F.action == "agroup_page"))
-async def on_new_group_page(cb: CallbackQuery, callback_data: AdminCb, session: AsyncSession, _: Translator) -> None:
+@router.callback_query(AdminCb.filter(F.action == "agroup_prog"))
+async def on_new_group_program(cb: CallbackQuery, callback_data: AdminCb, session: AsyncSession, _: Translator) -> None:
     await cb.answer()
-    await cb.message.edit_reply_markup(reply_markup=kb.admin_group_pick_kb(_, await repo.list_groups(session), callback_data.page))
+    await cb.message.edit_reply_markup(reply_markup=kb.admin_group_pick_kb(_, await repo.list_groups(session), callback_data.value))
 
 
 @router.callback_query(AdminCb.filter(F.action == "agroup"))

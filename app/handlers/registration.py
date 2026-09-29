@@ -447,10 +447,10 @@ async def _save_phone(raw: str, message: Message, state: FSMContext, session: As
 # ------------------------------------------------------------------ 4. group
 
 
-@router.callback_query(Registration.group, GroupPickCb.filter(F.action == "page"))
-async def on_group_page(cb: CallbackQuery, callback_data: GroupPickCb, session: AsyncSession, _: Translator) -> None:
+@router.callback_query(Registration.group, GroupPickCb.filter(F.action == "prog"))
+async def on_group_program(cb: CallbackQuery, callback_data: GroupPickCb, session: AsyncSession, _: Translator) -> None:
     await cb.answer()
-    await cb.message.edit_reply_markup(reply_markup=kb.group_pick_kb(_, await repo.list_groups(session), callback_data.page))
+    await cb.message.edit_reply_markup(reply_markup=kb.group_pick_kb(_, await repo.list_groups(session), callback_data.program))
 
 
 @router.callback_query(Registration.group, GroupPickCb.filter(F.action == "pick"))

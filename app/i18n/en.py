@@ -13,6 +13,7 @@ TEXTS: dict[str, str] = {
     "btn.no": "No",
     "btn.prev": "‹",
     "btn.next": "›",
+    "btn.programs": "‹ Programs",
     "cancelled": "Cancelled.",
     "use_menu": "Please use the buttons below 👇",
     "error.generic": "⚠️ Something went wrong. Please try again.",
@@ -108,7 +109,7 @@ TEXTS: dict[str, str] = {
     "btn.retake": "📷 New photo",
     "reg.phone": "Tap <b>📱 Share my number</b> below, or type it.\n<i>e.g. +998 90 123 45 67</i>",
     "btn.share_phone": "📱 Share my number",
-    "reg.group": "Choose your group, or type its name.",
+    "reg.group": "Choose your program, then your group.\nOr just type the group name, e.g. <code>IT1-25</code>.",
     "reg.photo": (
         "Send a <b>3×4 photo</b>: a portrait of your face on a plain light background, "
         "like the one in your documents."

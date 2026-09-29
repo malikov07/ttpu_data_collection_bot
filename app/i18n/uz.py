@@ -13,6 +13,7 @@ TEXTS: dict[str, str] = {
     "btn.no": "Yoʻq",
     "btn.prev": "‹",
     "btn.next": "›",
+    "btn.programs": "‹ Yoʻnalishlar",
     "cancelled": "Bekor qilindi.",
     "use_menu": "Iltimos, quyidagi tugmalardan foydalaning 👇",
     "error.generic": "⚠️ Xatolik yuz berdi. Qayta urinib koʻring.",
@@ -106,7 +107,7 @@ TEXTS: dict[str, str] = {
     "btn.retake": "📷 Yangi rasm",
     "reg.phone": "Pastdagi <b>📱 Raqamimni yuborish</b> tugmasini bosing yoki raqamni yozing.\n<i>Masalan: +998 90 123 45 67</i>",
     "btn.share_phone": "📱 Raqamimni yuborish",
-    "reg.group": "Guruhingizni tanlang yoki nomini yozing.",
+    "reg.group": "Yoʻnalishingizni, soʻng guruhingizni tanlang.\nYoki guruh nomini yozing, masalan: <code>IT1-25</code>.",
     "reg.photo": (
         "<b>3×4 rasm</b> yuboring: hujjatlardagi kabi, oddiy och fonda yuzingiz aniq koʻringan portret."
     ),
