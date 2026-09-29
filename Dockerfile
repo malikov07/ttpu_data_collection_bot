@@ -20,7 +20,13 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends libglib2.0-0 libgomp1 postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+# rapidocr pulls in the desktop OpenCV build, which needs X11 libraries. Both
+# builds share the cv2 module, so keep only the headless one.
+RUN pip install -r requirements.txt \
+    && v=$(pip show opencv-python-headless | awk '/^Version:/{print $2}') \
+    && pip uninstall -y opencv-python opencv-python-headless \
+    && pip install --no-deps "opencv-python-headless==$v" \
+    && python -c "import cv2; cv2.FaceDetectorYN; print('OpenCV', cv2.__version__)"
 
 COPY app ./app
 COPY alembic.ini ./
