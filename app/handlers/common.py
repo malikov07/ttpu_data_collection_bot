@@ -44,13 +44,8 @@ async def show_main_menu(
     _: Translator,
     *,
     text: str | None = None,
-    credit: bool = False,
 ) -> None:
-    """Send the home message with the persistent reply keyboard.
-
-    ``credit`` adds the author's line; only for a user's very first greeting.
-    """
-    footer = f"\n\n<i>{_('credit')}</i>" if credit else ""
+    """Send the home message with the persistent reply keyboard."""
     student = await repo.get_student_by_tg(session, user.id)
     if text is None:
         if access.is_staff:
@@ -61,9 +56,9 @@ async def show_main_menu(
         elif student:
             text = _("welcome.back", name=escape(student.first_name or student.full_name))
         else:
-            await message.answer(_("welcome.new") + footer, reply_markup=kb.consent_kb(_))
+            await message.answer(_("welcome.new"), reply_markup=kb.consent_kb(_))
             return
-    await message.answer(text + footer, reply_markup=kb.main_menu(_, access, is_registered=student is not None))
+    await message.answer(text, reply_markup=kb.main_menu(_, access, is_registered=student is not None))
 
 
 # ------------------------------------------------------------------ /start
@@ -95,7 +90,6 @@ async def cmd_language(message: Message) -> None:
 async def on_language(
     cb: CallbackQuery, callback_data: LangCb, state: FSMContext, session: AsyncSession, user: User, access: Access, bot: Bot
 ) -> None:
-    first_time = user.language is None
     user.language = Language(callback_data.code)
     _ = Translator(user.language)
     await session.commit()  # before touching FSM storage (separate DB connection)
@@ -104,7 +98,7 @@ async def on_language(
         await cb.message.delete()
     await set_user_commands(bot, user.id, user.language, access)
     if await state.get_state() is None:
-        await show_main_menu(cb.message, session, user, access, _, credit=first_time)
+        await show_main_menu(cb.message, session, user, access, _)
 
 
 # ------------------------------------------------------------------ help & cancel

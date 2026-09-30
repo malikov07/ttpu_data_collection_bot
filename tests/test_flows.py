@@ -374,14 +374,3 @@ async def test_admin_cannot_delete_last_admin(h):
     boss = await login_bot(h, 950, "boss")
     await h.click(boss, AdminCb(action="adel", id=account_id).pack())
     assert "own account" in h.tg.last(methods.AnswerCallbackQuery).text
-
-
-async def test_author_credit_is_shown_only_once(h):
-    u = h.user(880, "New")
-    await h.text(u, "/start")
-    await h.click(u, "lang:en")
-    assert h.tg.texts(880)[-1].endswith("<i>Made by Malikov Bekzod</i>")  # first greeting only
-    await h.text(u, "/start")
-    await h.text(u, "/language")
-    await h.click(u, "lang:ru")
-    assert sum("Malikov Bekzod" in t for t in h.tg.texts(880)) == 1

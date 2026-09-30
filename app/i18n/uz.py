@@ -50,7 +50,6 @@ TEXTS: dict[str, str] = {
         "Rozilik bildirish va boshlash uchun quyidagi tugmani bosing."
     ),
     "btn.consent": "✅ Roziman, boshlash",
-    "credit": "Muallif: Malikov Bekzod",
     "welcome.back": "👋 Qaytganingiz bilan, <b>{name}</b>!",
     "welcome.staff": "👋 Assalomu alaykum, <b>{name}</b>!\n{roles}",
     "role.admin": "🛡 Administrator",

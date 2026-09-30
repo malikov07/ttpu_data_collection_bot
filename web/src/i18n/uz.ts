@@ -61,7 +61,6 @@ export const uz: Record<MessageKey, string> = {
   "login.failed": "Login yoki parol notoʻgʻri.",
   "login.too_many": "Urinishlar juda koʻp. 15 daqiqa kutib, qayta urinib koʻring.",
   "login.footer": "Barcha kirishlar qayd etiladi. Talabalar maʼlumotlari maxfiy.",
-  "app.credit": "Muallif: Malikov Bekzod",
 
   "password.title": "Parolni oʻzgartirish",
   "password.forced": "Siz vaqtinchalik parol bilan kirdingiz. Davom etish uchun oʻz parolingizni tanlang.",

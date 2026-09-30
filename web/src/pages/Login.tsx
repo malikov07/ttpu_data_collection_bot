@@ -110,7 +110,6 @@ export function LoginPage() {
               <Lock className="size-3.5" />
               {t("login.footer")}
             </p>
-            <p className="mt-2 pl-[22px] text-[11px] text-slate-300">{t("app.credit")}</p>
           </form>
         </div>
       </section>
