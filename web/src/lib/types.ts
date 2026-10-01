@@ -2,6 +2,8 @@ export type Role = "admin" | "tutor" | "leader";
 export type Gender = "male" | "female";
 export type DocKind = "passport" | "photo" | "cv";
 export type DocType = "passport" | "id_card";
+export type CertType = "ielts" | "toefl" | "sat" | "duolingo" | "cefr" | "national" | "olympiad" | "other";
+export type CertStatus = "pending" | "approved" | "rejected";
 
 export interface Me {
   id: number;
@@ -57,9 +59,35 @@ export interface HistoryEntry {
 }
 
 export interface StudentDetail extends Student {
+  certificates: Certificate[];
   can_edit: boolean;
   can_delete: boolean;
   history: HistoryEntry[];
+}
+
+export interface FilePage {
+  index: number;
+  mime: string | null;
+  name: string | null;
+}
+
+export interface Certificate {
+  id: number;
+  type: CertType;
+  result: string;
+  status: CertStatus;
+  note: string | null;
+  files: (FilePage & { source: string })[];
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  /** In the certificates list (not on a student's page). */
+  student?: { id: number; full_name: string; group: { id: number; name: string } };
+  can_review?: boolean;
+}
+
+export interface CertificatePage extends Page<Certificate> {
+  counts: Record<CertStatus, number>;
 }
 
 export interface Page<T> {
@@ -101,6 +129,7 @@ export interface Stats {
   gender: Record<Gender, number>;
   documents: { complete: number; no_photo: number; no_cv: number };
   by_group: { id: number; name: string; students: number }[];
+  certificates: { pending: number; approved: number };
 }
 
 export interface Prefs {

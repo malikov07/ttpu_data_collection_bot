@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select, true
 from sqlalchemy.orm import selectinload
 
 from app.db import repo
-from app.db.models import AuditLog, DocumentKind, Gender, Group, Student
+from app.db.models import AuditLog, CertStatus, DocumentKind, Gender, Group, Student
 from app.services.prefs import Prefs, load_prefs, save_prefs
 from app.web.deps import DB, AdminUser, SettingsDep, StaffUser
 
@@ -60,6 +60,10 @@ async def stats(user: StaffUser, session: DB, settings: SettingsDep) -> dict:
         "gender": {g.value: genders.get(g, 0) for g in Gender},
         "documents": docs,
         "by_group": [{"id": gid, "name": name, "students": n} for gid, name, n in by_group],
+        "certificates": {
+            "pending": await repo.count_certificates(session, visible, CertStatus.PENDING),
+            "approved": await repo.count_certificates(session, visible, CertStatus.APPROVED),
+        },
     }
 
 

@@ -7,10 +7,11 @@ from typing import Callable
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
-from app.callbacks import AdminCb, EditFieldCb, GroupPickCb, LangCb, RegCb, StaffCb
-from app.db.models import Account, Group, Language, StaffRole, Student
+from app.callbacks import AdminCb, CertCb, CertReviewCb, EditFieldCb, GroupPickCb, LangCb, RegCb, StaffCb
+from app.db.models import Account, Certificate, CertStatus, CertType, Group, Language, StaffRole, Student
 from app.db.repo import Access, GroupStat
 from app.i18n import Translator, t
+from app.services import certificates as certs
 
 STUDENTS_PER_PAGE = 10
 
@@ -102,13 +103,13 @@ def main_menu(_: Translator, access: Access, *, is_registered: bool) -> ReplyKey
     b = ReplyKeyboardBuilder()
     if access.is_staff:
         b.row(KeyboardButton(text=_("btn.students")), KeyboardButton(text=_("btn.search")))
-        row = [KeyboardButton(text=_("btn.export"))]
+        row = [KeyboardButton(text=_("btn.review_certs")), KeyboardButton(text=_("btn.export"))]
         if access.is_admin:
             row.append(KeyboardButton(text=_("btn.admin")))
         b.row(*row)
     if not access.sees_all:  # students, and group leaders (who are usually students too)
         if is_registered:
-            b.row(KeyboardButton(text=_("btn.profile")))
+            b.row(KeyboardButton(text=_("btn.profile")), KeyboardButton(text=_("btn.certificates")))
         else:
             b.row(KeyboardButton(text=_("btn.register")))
     b.row(KeyboardButton(text=_("btn.language")), KeyboardButton(text=_("btn.help")))
@@ -194,9 +195,85 @@ def edit_fields_kb(_: Translator) -> InlineKeyboardMarkup:
         [_field_btn(_, "middle_name"), _field_btn(_, "gender")],
         [_btn(_("field.phone"), EditFieldCb(field="phone").pack()), _btn(_("field.group"), EditFieldCb(field="group").pack())],
         [_btn(_("field.photo"), EditFieldCb(field="photo").pack()), _btn(_("field.cv"), EditFieldCb(field="cv").pack())],
-        [_btn(_("field.document"), EditFieldCb(field="document").pack())],
+        [_btn(_("field.document"), EditFieldCb(field="document").pack()), _btn(_("field.certs"), EditFieldCb(field="certs").pack())],
         [_btn(_("btn.back"), RegCb(action="back").pack())],
     )
+
+
+# ------------------------------------------------------------------ certificates
+
+STATUS_ICON = {CertStatus.PENDING: "⏳", CertStatus.APPROVED: "✅", CertStatus.REJECTED: "❌"}
+
+
+def my_certificates_kb(_: Translator, items: list[Certificate]) -> InlineKeyboardMarkup:
+    """Add a certificate; remove one that isn't accepted (yet)."""
+    rows = [[_btn(_("btn.add_certificate"), CertCb(action="add").pack())]] if len(items) < certs.MAX_PER_STUDENT else []
+    for i, c in enumerate(items, start=1):
+        if c.status != CertStatus.APPROVED:
+            rows.append([_btn(f"🗑 {i}. {certs.label(_.lang, c)}"[:60], CertCb(action="del", id=c.id).pack())])
+    return inline(*rows)
+
+
+def cert_exit(_: Translator, back: bool) -> InlineKeyboardButton:
+    """Leave adding a certificate: back to the registration step, or cancel."""
+    return _btn(_("btn.back"), CertCb(action="back").pack()) if back else _btn(_("btn.cancel"), "cancel")
+
+
+def cert_type_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
+    rows = [[_btn(_(f"cert.type.{ct.value}"), CertCb(action="type", value=ct.value).pack()) for ct in group] for group in (
+        (CertType.IELTS, CertType.TOEFL, CertType.SAT), (CertType.DUOLINGO, CertType.CEFR),
+        (CertType.NATIONAL,), (CertType.OLYMPIAD, CertType.OTHER),
+    )]
+    return inline(*rows, [cert_exit(_, back)])
+
+
+def cefr_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
+    levels = [_btn(level, CertCb(action="result", value=level).pack()) for level in certs.CEFR_LEVELS]
+    return inline(levels[:3], levels[3:], [cert_exit(_, back)])
+
+
+def cert_exit_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
+    return inline([cert_exit(_, back)])
+
+
+def cert_pages_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
+    return inline([_btn(_("btn.done"), CertCb(action="done").pack())], [cert_exit(_, back)])
+
+
+def cert_confirm_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
+    label = _("btn.cert_add_it") if back else _("btn.submit")
+    return inline([_btn(label, CertCb(action="submit").pack())], [cert_exit(_, back)])
+
+
+def reg_certs_kb(_: Translator, items: list[dict]) -> InlineKeyboardMarkup:
+    """Registration step: add certificates (optional), remove one, then continue."""
+    rows = [[_btn(_("btn.add_certificate"), CertCb(action="add").pack())]] if len(items) < certs.MAX_PER_STUDENT else []
+    for i, c in enumerate(items):
+        rows.append([_btn(f"🗑 {certs.describe(_.lang, c['type'], c['result'])}"[:60], CertCb(action="rdel", value=str(i)).pack())])
+    rows.append([_btn(_("btn.continue") if items else _("btn.no_certs"), RegCb(action="certs_done").pack())])
+    return inline(*rows)
+
+
+def cert_line(_: Translator, c: Certificate, *, student: bool = False) -> str:
+    text = f"{STATUS_ICON[c.status]} {certs.label(_.lang, c)}"
+    if student:
+        text += f" · {c.student.full_name} · {c.student.group.name}"
+    return text[:64]
+
+
+def cert_list_kb(_: Translator, items: list[Certificate], *, student: bool) -> InlineKeyboardMarkup:
+    """Staff: one button per certificate (``student`` adds the student's name and group)."""
+    rows = [[_btn(cert_line(_, c, student=student), CertReviewCb(action="open", id=c.id).pack())] for c in items]
+    return inline(*rows, [_btn(_("btn.close"), StaffCb(action="close").pack())])
+
+
+def cert_review_kb(_: Translator, cert: Certificate, *, can_review: bool) -> InlineKeyboardMarkup:
+    decide = []
+    if can_review and cert.status != CertStatus.APPROVED:
+        decide.append(_btn(_("btn.cert_approve"), CertReviewCb(action="ok", id=cert.id).pack()))
+    if can_review and cert.status != CertStatus.REJECTED:
+        decide.append(_btn(_("btn.cert_reject"), CertReviewCb(action="no", id=cert.id).pack()))
+    return inline(decide, [_btn(_("btn.close"), StaffCb(action="close").pack())])
 
 
 # ------------------------------------------------------------------ staff
@@ -237,12 +314,16 @@ def student_card_kb(_: Translator, student: Student, *, can_edit: bool, can_dele
         docs.append(_btn(_("btn.passport"), StaffCb(action="doc", student_id=student.id, value="passport").pack()))
     if "cv" in kinds:
         docs.append(_btn(_("btn.cv"), StaffCb(action="doc", student_id=student.id, value="cv").pack()))
+    certificates = []
+    if student.certificates:
+        label = _("btn.student_certs", n=len(student.certificates))
+        certificates.append(_btn(label, CertReviewCb(action="student", id=student.id).pack()))
     actions = []
     if can_edit:
         actions.append(_btn(_("btn.edit_student"), StaffCb(action="edit", student_id=student.id).pack()))
     if can_delete:
         actions.append(_btn(_("btn.delete"), StaffCb(action="del", student_id=student.id).pack()))
-    return inline(docs, actions, [_btn(_("btn.close"), StaffCb(action="close").pack())])
+    return inline(docs, certificates, actions, [_btn(_("btn.close"), StaffCb(action="close").pack())])
 
 
 EDITABLE = ("last_name", "first_name", "middle_name", "birth_date", "gender", "phone", "group")

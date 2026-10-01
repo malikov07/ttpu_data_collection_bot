@@ -2,6 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import clsx from "clsx";
 import {
   Activity as ActivityIcon,
+  Award,
   Download,
   Eye,
   FileText,
@@ -26,6 +27,7 @@ const FILTERS: { value: string; label: MessageKey }[] = [
   { value: "auth", label: "activity.f_auth" },
   { value: "student.", label: "activity.f_student" },
   { value: "document", label: "activity.f_document" },
+  { value: "certificate", label: "activity.f_certificate" },
   { value: "group", label: "activity.f_group" },
   { value: "account", label: "activity.f_account" },
   { value: "settings", label: "activity.f_settings" },
@@ -37,6 +39,8 @@ function iconFor(action: string): { icon: LucideIcon; tone: string } {
   if (action.startsWith("auth")) return { icon: LogIn, tone: "bg-slate-100 text-slate-600" };
   if (action === "document.view") return { icon: Eye, tone: "bg-sky-50 text-sky-600" };
   if (action.startsWith("document")) return { icon: FileText, tone: "bg-brand-50 text-brand-700" };
+  if (action === "certificate.view") return { icon: Eye, tone: "bg-sky-50 text-sky-600" };
+  if (action.startsWith("certificate")) return { icon: Award, tone: "bg-amber-50 text-amber-700" };
   if (action.startsWith("students.export")) return { icon: Download, tone: "bg-emerald-50 text-emerald-600" };
   if (action.startsWith("student")) return { icon: UserPen, tone: "bg-brand-50 text-brand-700" };
   if (action.startsWith("group")) return { icon: UsersRound, tone: "bg-violet-50 text-violet-600" };

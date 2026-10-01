@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, FileImage, FileText, History, IdCard, ImageIcon, Pencil, Send, Trash2, Upload, UserRound } from "lucide-react";
+import { ArrowLeft, Award, Eye, FileImage, FileText, History, IdCard, ImageIcon, Pencil, Send, Trash2, Upload, UserRound } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { DocumentViewer } from "../components/DocumentViewer";
+import { CertificateItem } from "../components/Certificates";
+import { DocumentViewer, fileUrl } from "../components/DocumentViewer";
 import { ConfirmDialog, useToast } from "../components/overlay";
 import { StudentAvatar } from "../components/StudentBits";
 import { Badge, Button, Card, CardHeader, EmptyState, ErrorBanner, Field, Input, PageLoader, Select } from "../components/ui";
@@ -250,7 +251,14 @@ function DocumentBlock({ student, kind }: { student: StudentDetail; kind: DocKin
         </ul>
       )}
       {student.can_edit && <p className="mt-3 text-xs text-slate-400">{t(meta.hint)}</p>}
-      <DocumentViewer studentId={student.id} kind={kind} doc={doc} index={viewing} onIndex={setViewing} onClose={() => setViewing(null)} title={t(meta.title)} />
+      <DocumentViewer
+        pages={doc.pages}
+        url={(i, download) => fileUrl(student.id, kind, i, download)}
+        index={viewing}
+        onIndex={setViewing}
+        onClose={() => setViewing(null)}
+        title={t(meta.title)}
+      />
     </div>
   );
 }
@@ -436,6 +444,19 @@ export function StudentDetailPage() {
               <DocumentBlock student={student} kind="photo" />
               <DocumentBlock student={student} kind="cv" />
             </div>
+          </Card>
+
+          <Card>
+            <CardHeader title={t("cert.title")} icon={<Award className="size-[18px]" />} />
+            {student.certificates.length > 0 ? (
+              <div className="divide-y divide-slate-100">
+                {student.certificates.map((c) => (
+                  <CertificateItem key={c.id} cert={c} studentId={student.id} canReview={student.can_edit} />
+                ))}
+              </div>
+            ) : (
+              <p className="px-5 py-6 text-sm text-slate-400">{t("cert.none")}</p>
+            )}
           </Card>
         </div>
 

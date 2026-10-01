@@ -25,6 +25,19 @@ class GroupPickCb(CallbackData, prefix="gp"):
     program: str = ""
 
 
+class CertCb(CallbackData, prefix="cert"):
+    # student: list | add | type | result | done | submit | del | del_ok
+    action: str
+    id: int = 0
+    value: str = ""
+
+
+class CertReviewCb(CallbackData, prefix="cr"):
+    # staff: queue | student (id = student) | open | ok | no | skip (id = certificate)
+    action: str
+    id: int = 0
+
+
 class StaffCb(CallbackData, prefix="st"):
     # groups | group | card | doc | close | edit | efield | egender | egroup | egprog | del | del_ok
     action: str

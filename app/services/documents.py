@@ -27,6 +27,7 @@ ALLOWED: dict[DocumentKind, set[str]] = {
     DocumentKind.PHOTO: IMAGE_MIMES,
     DocumentKind.CV: IMAGE_MIMES | {PDF_MIME} | WORD_MIMES,
 }
+CERTIFICATE_MIMES = IMAGE_MIMES | {PDF_MIME}
 
 
 class FileRejected(Exception):
@@ -41,8 +42,12 @@ def is_image(file: dict) -> bool:
     return file.get("mime") in IMAGE_MIMES
 
 
-def extract_file(message: Message, kind: DocumentKind) -> dict:
-    """JSON-serialisable description of the photo/file in ``message``."""
+def extract_file(message: Message, kind: DocumentKind | set[str]) -> dict:
+    """JSON-serialisable description of the photo/file in ``message``.
+
+    ``kind`` gives the accepted file types: a document kind, or a set of MIME types.
+    """
+    allowed = ALLOWED[kind] if isinstance(kind, DocumentKind) else kind
     if message.photo:
         photo = message.photo[-1]  # the largest size Telegram kept
         return {
@@ -58,7 +63,7 @@ def extract_file(message: Message, kind: DocumentKind) -> dict:
         mime = doc.mime_type or mimetypes.guess_type(doc.file_name or "")[0] or ""
         if mime == "image/jpg":
             mime = "image/jpeg"
-        if mime not in ALLOWED[kind]:
+        if mime not in allowed:
             raise FileRejected("type")
         if doc.file_size and doc.file_size > MAX_FILE_MB * 1024 * 1024:
             raise FileRejected("size")

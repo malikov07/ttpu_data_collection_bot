@@ -1,7 +1,7 @@
 """Student registration.
 
 Steps: document (read on the server) → check the read data → phone → group →
-3x4 photo → CV → review. Each step is one screen; the previous screen is
+3x4 photo → CV → certificates (optional) → review. Each step is one screen; the previous screen is
 removed, so the chat stays short.
 """
 
@@ -20,14 +20,15 @@ from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import keyboards as kb
-from app.callbacks import EditFieldCb, GroupPickCb, RegCb
+from app.callbacks import CertCb, EditFieldCb, GroupPickCb, RegCb
 from app.config import Settings
 from app.db import repo
-from app.db.models import DocType, DocumentKind, Gender, Group, User
+from app.db.models import CertType, DocType, DocumentKind, Gender, Group, User
 from app.db.repo import Access, StudentForm
 from app.handlers.common import show_main_menu
 from app.handlers.ui import delete_quietly, drop_screen, screen, step_screen
 from app.i18n import Translator, t, variants
+from app.services import certificates as certs
 from app.services import vision
 from app.services.documents import FileRejected, download, extract_file, is_image
 from app.services.prefs import Prefs
@@ -45,9 +46,12 @@ from app.views import render_check, render_profile, render_review
 log = logging.getLogger(__name__)
 router = Router(name="registration")
 
-ORDER = ("document", "phone", "group", "photo", "cv")
-STEP_NO = {"document": 1, "check": 2, "phone": 3, "group": 4, "photo": 5, "cv": 6}
-REQUIRED = {"document": "doc", "phone": "phone", "group": "group_id", "photo": "photo_files", "cv": "cv_files"}
+ORDER = ("document", "phone", "group", "photo", "cv", "certs")
+STEP_NO = {"document": 1, "check": 2, "phone": 3, "group": 4, "photo": 5, "cv": 6, "certs": 7}
+# The certificates step is optional, but the student must pass it once.
+REQUIRED = {
+    "document": "doc", "phone": "phone", "group": "group_id", "photo": "photo_files", "cv": "cv_files", "certs": "certs_done",
+}
 # Albums arrive as several simultaneous updates: handle one file per user at a time.
 _locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
@@ -98,6 +102,14 @@ async def ask(field: str, chat_id: int, state: FSMContext, session: AsyncSession
         await state.update_data(pages=[], pages_msg=None)
         body = step_screen(_, "step.cv", step, _("reg.cv", max=prefs.max_document_pages))
         await screen(bot, chat_id, state, body, kb.cancel_kb(_))
+    elif field == "certs":
+        await state.set_state(Registration.certs)
+        items = (await state.get_data()).get("reg_certs") or []
+        body = _("reg.certs")
+        if items:
+            added = "\n".join(f"✅ {escape(certs.describe(_.lang, c['type'], c['result']))}" for c in items)
+            body += "\n\n" + _("reg.certs_added", list=added)
+        await screen(bot, chat_id, state, step_screen(_, "step.certs", step, body), kb.reg_certs_kb(_, items))
 
 
 async def advance(done: str, chat_id: int, state: FSMContext, session: AsyncSession, _: Translator, prefs: Prefs, bot: Bot) -> None:
@@ -568,6 +580,27 @@ async def on_cv_other(message: Message, state: FSMContext, _: Translator, bot: B
     await say_error(message, state, _("file_err.expected"), bot)
 
 
+# ------------------------------------------------------------------ 7. certificates (optional)
+# Adding one runs the flow in app/handlers/certificates.py and comes back here.
+
+
+@router.callback_query(Registration.certs, CertCb.filter(F.action == "rdel"))
+async def on_cert_remove(cb: CallbackQuery, callback_data: CertCb, state: FSMContext, session: AsyncSession, _: Translator, prefs: Prefs, bot: Bot) -> None:
+    await cb.answer()
+    items = list((await state.get_data()).get("reg_certs") or [])
+    if callback_data.value.isdigit() and int(callback_data.value) < len(items):
+        items.pop(int(callback_data.value))
+        await state.update_data(reg_certs=items)
+    await ask("certs", cb.message.chat.id, state, session, _, prefs, bot)
+
+
+@router.callback_query(Registration.certs, RegCb.filter(F.action == "certs_done"))
+async def on_certs_done(cb: CallbackQuery, state: FSMContext, session: AsyncSession, _: Translator, prefs: Prefs, bot: Bot) -> None:
+    await cb.answer()
+    await state.update_data(certs_done=True)
+    await advance("certs", cb.message.chat.id, state, session, _, prefs, bot)
+
+
 # ------------------------------------------------------------------ review & submit
 
 
@@ -639,6 +672,12 @@ async def on_submit(
         entity="student", entity_id=result.student.id, summary=f"{result.student.full_name} · {group.name}",
         details=corrections(data),
     )
+    for item in (data.get("reg_certs") or [])[: certs.MAX_PER_STUDENT]:
+        cert = await repo.add_certificate(session, result.student, CertType(item["type"]), item["result"], item["files"])
+        await repo.audit(
+            session, repo.tg_actor(user.id), "certificate.submit", entity="student", entity_id=result.student.id,
+            summary=f"{certs.label('en', cert)} · {result.student.full_name}",
+        )
     await session.commit()
     await drop_screen(bot, cb.message.chat.id, state)
     await state.clear()
@@ -661,6 +700,7 @@ async def _notify_leaders(bot: Bot, session: AsyncSession, student_tg: int, grou
 
 
 @router.message(Registration.check)
+@router.message(Registration.certs)
 @router.message(Registration.review)
 async def on_use_buttons(message: Message, state: FSMContext, _: Translator, bot: Bot) -> None:
     await say_error(message, state, _("err.use_buttons"), bot)

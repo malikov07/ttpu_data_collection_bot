@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight, Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
-import type { DocKind, DocumentInfo } from "../lib/types";
+import type { DocKind, FilePage } from "../lib/types";
 import { Modal } from "./overlay";
 import { Button, IconButton, Spinner } from "./ui";
 
@@ -9,19 +9,22 @@ export function fileUrl(studentId: number, kind: DocKind, index: number, downloa
   return `/api/students/${studentId}/documents/${kind}/${index}${download ? "?download=true" : ""}`;
 }
 
-/** Previews one file of a document (images and PDFs inline), with paging. */
+export function certificateFileUrl(certId: number, index: number, download = false) {
+  return `/api/certificates/${certId}/files/${index}${download ? "?download=true" : ""}`;
+}
+
+/** Previews one file of a document or certificate (images and PDFs inline), with paging. */
 export function DocumentViewer({
-  studentId,
-  kind,
-  doc,
+  pages,
+  url,
   index,
   onIndex,
   onClose,
   title,
 }: {
-  studentId: number;
-  kind: DocKind;
-  doc: DocumentInfo;
+  pages: FilePage[];
+  /** URL of file ``index``; ``download`` asks for an attachment. */
+  url: (index: number, download?: boolean) => string;
   index: number | null;
   onIndex: (i: number) => void;
   onClose: () => void;
@@ -31,29 +34,30 @@ export function DocumentViewer({
   const [blob, setBlob] = useState<{ url: string; type: string } | null>(null);
   const [failed, setFailed] = useState(false);
 
+  const src = index === null ? null : url(index);
   useEffect(() => {
-    if (index === null) return;
-    let url: string | null = null;
+    if (src === null) return;
+    let objectUrl: string | null = null;
     let cancelled = false;
     setBlob(null);
     setFailed(false);
-    fetch(fileUrl(studentId, kind, index), { credentials: "same-origin" })
+    fetch(src, { credentials: "same-origin" })
       .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
       .then((b) => {
         if (cancelled) return;
-        url = URL.createObjectURL(b);
-        setBlob({ url, type: b.type });
+        objectUrl = URL.createObjectURL(b);
+        setBlob({ url: objectUrl, type: b.type });
       })
       .catch(() => !cancelled && setFailed(true));
     return () => {
       cancelled = true;
-      if (url) URL.revokeObjectURL(url);
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [studentId, kind, index]);
+  }, [src]);
 
   if (index === null) return null;
-  const total = doc.pages.length;
-  const page = doc.pages[index];
+  const total = pages.length;
+  const page = pages[index];
 
   return (
     <Modal
@@ -76,7 +80,7 @@ export function DocumentViewer({
               </>
             )}
           </div>
-          <a href={fileUrl(studentId, kind, index, true)}>
+          <a href={url(index, true)}>
             <Button variant="secondary" icon={<Download className="size-4" />}>
               {t("action.download")}
             </Button>

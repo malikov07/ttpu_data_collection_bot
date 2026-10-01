@@ -14,6 +14,9 @@ from sqlalchemy.orm import selectinload
 from app.db.models import (
     Account,
     AuditLog,
+    Certificate,
+    CertStatus,
+    CertType,
     Document,
     DocumentKind,
     DocType,
@@ -145,7 +148,12 @@ async def remove_group(session: AsyncSession, group: Group) -> bool:
 
 
 def student_options():
-    return (selectinload(Student.group), selectinload(Student.documents), selectinload(Student.user))
+    return (
+        selectinload(Student.group),
+        selectinload(Student.documents),
+        selectinload(Student.certificates),
+        selectinload(Student.user),
+    )
 
 
 async def get_student(session: AsyncSession, student_id: int) -> Student | None:
@@ -283,6 +291,55 @@ async def search_students(
 async def delete_student(session: AsyncSession, student: Student) -> None:
     await session.delete(student)
     await session.flush()
+
+
+# -------------------------------------------------------------------- certificates
+
+
+def certificate_options():
+    return (selectinload(Certificate.student).options(selectinload(Student.group), selectinload(Student.user)),)
+
+
+async def get_certificate(session: AsyncSession, cert_id: int) -> Certificate | None:
+    return await session.scalar(select(Certificate).where(Certificate.id == cert_id).options(*certificate_options()))
+
+
+async def add_certificate(
+    session: AsyncSession, student: Student, cert_type: CertType, result: str, files: list[dict]
+) -> Certificate:
+    # Setting .student (not appending to student.certificates) never lazy-loads the
+    # collection; a loaded collection still gets the new certificate.
+    cert = Certificate(student=student, type=cert_type, result=result, files=files, status=CertStatus.PENDING)
+    session.add(cert)
+    await session.flush()
+    return cert
+
+
+async def list_certificates(
+    session: AsyncSession, group_ids: list[int] | None, *, status: CertStatus | None = None, limit: int = 20
+) -> list[Certificate]:
+    """Newest first, within the given groups (None = all)."""
+    stmt = select(Certificate).join(Student, Student.id == Certificate.student_id).options(*certificate_options())
+    if group_ids is not None:
+        stmt = stmt.where(Student.group_id.in_(group_ids))
+    if status is not None:
+        stmt = stmt.where(Certificate.status == status)
+    stmt = stmt.order_by(Certificate.created_at.desc(), Certificate.id.desc()).limit(limit)
+    return list((await session.scalars(stmt)).all())
+
+
+async def count_certificates(session: AsyncSession, group_ids: list[int] | None, status: CertStatus) -> int:
+    stmt = select(func.count(Certificate.id)).join(Student, Student.id == Certificate.student_id).where(Certificate.status == status)
+    if group_ids is not None:
+        stmt = stmt.where(Student.group_id.in_(group_ids))
+    return await session.scalar(stmt) or 0
+
+
+def review_certificate(cert: Certificate, status: CertStatus, reviewer: str, note: str | None = None) -> None:
+    cert.status = status
+    cert.note = (note or None) if status == CertStatus.REJECTED else None
+    cert.reviewed_by = reviewer
+    cert.reviewed_at = utcnow()
 
 
 # ------------------------------------------------------------------------ accounts

@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import {
   Activity,
+  Award,
   GraduationCap,
   KeyRound,
   LayoutDashboard,
@@ -27,6 +28,7 @@ interface NavItem {
 const MAIN: NavItem[] = [
   { to: "/", label: "nav.dashboard", icon: LayoutDashboard },
   { to: "/students", label: "nav.students", icon: GraduationCap },
+  { to: "/certificates", label: "nav.certificates", icon: Award },
   { to: "/groups", label: "nav.groups", icon: UsersRound },
 ];
 const ADMIN: NavItem[] = [

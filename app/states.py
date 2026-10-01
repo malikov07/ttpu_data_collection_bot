@@ -10,7 +10,15 @@ class Registration(StatesGroup):
     group = State()
     photo = State()  # 3x4
     cv = State()
+    certs = State()  # optional: certificates and awards
     review = State()
+
+
+class CertStates(StatesGroup):
+    type = State()
+    result = State()  # score / level / description
+    files = State()
+    confirm = State()
 
 
 class LoginStates(StatesGroup):
@@ -21,6 +29,7 @@ class LoginStates(StatesGroup):
 class StaffStates(StatesGroup):
     search = State()
     edit_value = State()
+    cert_reason = State()  # why a certificate isn't accepted
 
 
 class AdminStates(StatesGroup):

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, CalendarCheck, FileCheck2, GraduationCap, TrendingUp, UsersRound } from "lucide-react";
+import { ArrowRight, Award, CalendarCheck, FileCheck2, GraduationCap, TrendingUp, UsersRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardHeader, PageHeader, PageLoader } from "../components/ui";
@@ -101,6 +101,19 @@ export function DashboardPage() {
   return (
     <>
       <PageHeader title={t("dashboard.welcome", { name: firstName })} subtitle={subtitle} />
+
+      {data.certificates.pending > 0 && (
+        <Link
+          to="/certificates"
+          className="mb-4 flex items-center gap-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 transition-colors hover:bg-amber-100/70"
+        >
+          <Award className="size-5 shrink-0 text-amber-600" />
+          <span className="flex-1">{t("dashboard.certs_pending", { n: data.certificates.pending })}</span>
+          <span className="inline-flex items-center gap-1 font-medium">
+            {t("dashboard.review")} <ArrowRight className="size-3.5" />
+          </span>
+        </Link>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label={t("dashboard.students")} value={data.students} icon={<GraduationCap className="size-5" />} to="/students" />

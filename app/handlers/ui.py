@@ -15,7 +15,7 @@ from aiogram.types import InlineKeyboardMarkup, Message, ReplyKeyboardMarkup, Re
 from app.i18n import Translator
 
 Markup = InlineKeyboardMarkup | ReplyKeyboardMarkup | ReplyKeyboardRemove | None
-TOTAL_STEPS = 6
+TOTAL_STEPS = 7
 
 
 def progress(step: int, total: int = TOTAL_STEPS) -> str:

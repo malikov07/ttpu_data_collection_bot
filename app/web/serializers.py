@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from app.db.models import Account, Document, DocumentKind, Group, Student
+from app.db.models import Account, Certificate, Document, DocumentKind, Group, Student
 from app.services.validators import age_on
 
 
@@ -19,6 +19,26 @@ def document_json(doc: Document | None) -> dict:
         else [],
         "updated_at": doc.updated_at.isoformat() if doc else None,
     }
+
+
+def certificate_json(c: Certificate, *, student: bool = False, can_review: bool | None = None) -> dict:
+    data = {
+        "id": c.id,
+        "type": c.type.value,
+        "result": c.result,
+        "status": c.status.value,
+        "note": c.note,
+        "files": [{"index": i, "mime": f.get("mime"), "name": f.get("name"), "source": f.get("type")} for i, f in enumerate(c.files)],
+        "reviewed_by": c.reviewed_by,
+        "reviewed_at": c.reviewed_at.isoformat() if c.reviewed_at else None,
+        "created_at": c.created_at.isoformat(),
+    }
+    if student:
+        s = c.student
+        data["student"] = {"id": s.id, "full_name": s.full_name, "group": {"id": s.group.id, "name": s.group.name}}
+    if can_review is not None:
+        data["can_review"] = can_review
+    return data
 
 
 def student_json(s: Student, *, today: date | None = None) -> dict:

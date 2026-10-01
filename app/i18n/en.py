@@ -23,12 +23,14 @@ TEXTS: dict[str, str] = {
         "This bot collects your data for Turin Polytechnic University in Tashkent.\n\n"
         "• /start: main menu\n"
         "• /language: change language\n"
-        "• /cancel: stop the current action\n\n"
+        "• /cancel: stop the current action\n"
+        "• 🏆 My certificates: add IELTS, SAT, CEFR and other certificates\n\n"
         "Staff members: /login"
     ),
     "help.staff": (
         "ℹ️ <b>Staff help</b>\n\n"
         "• /students: browse students\n"
+        "• /certificates: certificates to review\n"
         "• /find <i>text</i>: search by name, phone, document or @username\n"
         "• /export: Excel file of your students\n"
         "• /logout: disconnect this Telegram from your account\n"
@@ -43,7 +45,8 @@ TEXTS: dict[str, str] = {
         "It takes about <b>3 minutes</b>. Have these ready:\n"
         "🪪 passport or ID card\n"
         "🖼 a 3×4 photo\n"
-        "📄 your CV (PDF or Word)\n\n"
+        "📄 your CV (PDF or Word)\n"
+        "🏆 certificates (IELTS, SAT…), if you have any\n\n"
         "🔒 Your data is read <b>on the university's own server</b>. It is never sent to "
         "third-party or AI services, and only your group leader and tutors can see it "
         "(Law of the Republic of Uzbekistan “On Personal Data”).\n\n"
@@ -143,7 +146,8 @@ TEXTS: dict[str, str] = {
     "docs.line": "🪪 Document {passport}   🖼 Photo {photo}   📄 CV {cv}",
     "reg.done": (
         "🎉 <b>Done! Your data has been submitted.</b>\n\n"
-        "If something is wrong, contact your tutor or group leader: they can correct it."
+        "If something is wrong, contact your tutor or group leader: they can correct it.\n\n"
+        "🏆 You can add more certificates later with «🏆 My certificates»."
     ),
     "reg.locked": "🔒 Your data has already been submitted and can't be changed in the bot.\nIf something is wrong, contact your tutor or group leader: they can correct it.",
     "reg.closed": "⏸ Data collection is closed right now. Please try again later.",
@@ -182,6 +186,94 @@ TEXTS: dict[str, str] = {
     "gender.female": "Female",
     "doctype.passport": "Passport",
     "doctype.id_card": "ID card",
+    # ---------------------------------------------------------------- certificates
+    "step.certs": "🏆 Certificates",
+    "reg.certs": (
+        "Do you have <b>IELTS, TOEFL, SAT, CEFR</b>, a national certificate, olympiad diplomas or other awards? "
+        "Add each one: a PDF or a photo.\n\n"
+        "<i>No certificates? Press «I have none».</i>"
+    ),
+    "reg.certs_added": "<b>Added:</b>\n{list}",
+    "reg.no_certs": "no certificates",
+    "btn.no_certs": "I have none ›",
+    "btn.continue": "Continue ›",
+    "btn.cert_add_it": "✅ Add",
+    "field.certs": "🏆 Certificates",
+    "cert.added": "✅ Added",
+    "cert.confirm_reg": "Add it? It will be sent with your data.",
+    "btn.certificates": "🏆 My certificates",
+    "btn.review_certs": "🏆 Certificates",
+    "btn.add_certificate": "➕ Add a certificate",
+    "btn.student_certs": "🏆 Certificates ({n})",
+    "btn.cert_approve": "✅ Accept",
+    "btn.cert_reject": "❌ Reject",
+    "btn.cert_open": "🏆 Review",
+    "cert.type.ielts": "IELTS",
+    "cert.type.toefl": "TOEFL iBT",
+    "cert.type.sat": "SAT",
+    "cert.type.duolingo": "Duolingo",
+    "cert.type.cefr": "CEFR",
+    "cert.type.national": "National certificate",
+    "cert.type.olympiad": "Olympiad / award",
+    "cert.type.other": "Other",
+    "cert.status.pending": "⏳ under review",
+    "cert.status.approved": "✅ accepted",
+    "cert.status.rejected": "❌ not accepted",
+    "cert.summary": "🏆 Certificates: {n}",
+    "cert.summary_pending": "⏳ {n} under review",
+    "cert.mine_title": "🏆 <b>My certificates</b>",
+    "cert.mine_empty": (
+        "🏆 <b>My certificates</b>\n\n"
+        "You haven't added any yet.\n\n"
+        "Add your IELTS, TOEFL, SAT, CEFR, national certificates, olympiads and other awards: "
+        "the university staff will review them."
+    ),
+    "cert.mine_tip": "Staff review every certificate. You'll get a message with the result.",
+    "cert.pick_type": "🏆 <b>New certificate</b>\n\nWhich certificate is it?",
+    "cert.ask.ielts": "Send your <b>overall band score</b>.\n<i>e.g. 6.5</i>",
+    "cert.ask.toefl": "Send your <b>total score</b> (0–120).\n<i>e.g. 95</i>",
+    "cert.ask.sat": "Send your <b>total score</b> (400–1600).\n<i>e.g. 1350</i>",
+    "cert.ask.duolingo": "Send your <b>overall score</b> (10–160).\n<i>e.g. 120</i>",
+    "cert.ask.cefr": "Choose your <b>level</b>.",
+    "cert.ask.national": "Type the <b>subject and grade</b>.\n<i>e.g. Mathematics A+</i>",
+    "cert.ask.olympiad": "Type the <b>olympiad or award</b> and your place.\n<i>e.g. Regional math olympiad, 1st place</i>",
+    "cert.ask.other": "Type the <b>certificate name and result</b>.\n<i>e.g. Cambridge C1 Advanced, grade A</i>",
+    "cert.err.ielts": "❌ An IELTS score is 0–9 in steps of 0.5, e.g. <code>6.5</code>.",
+    "cert.err.toefl": "❌ A TOEFL iBT score is a whole number from 0 to 120, e.g. <code>95</code>.",
+    "cert.err.sat": "❌ A SAT score is 400–1600 in steps of 10, e.g. <code>1350</code>.",
+    "cert.err.duolingo": "❌ A Duolingo score is 10–160 in steps of 5, e.g. <code>120</code>.",
+    "cert.err.cefr": "❌ Choose the level with the buttons: A1, A2, B1, B2, C1 or C2.",
+    "cert.err.description": "❌ Please describe it briefly: 3–100 characters.",
+    "cert.err.type_text": "❌ Please type it as text.",
+    "cert.err.file_type": "❌ Send the certificate as a PDF or a photo.",
+    "cert.err.pdf_after_photos": "❌ Send either one PDF or photos. After the last photo, press «Done».",
+    "cert.ask_files": (
+        "Send the certificate: a <b>PDF</b> or a <b>photo</b>.\n"
+        "<i>Several pages? Send the photos one after another (up to {max}) and press «Done».</i>"
+    ),
+    "cert.ask_files_short": "❌ Please send the certificate as a PDF or a photo.",
+    "cert.files": "📎 Files: {n}",
+    "cert.confirm": "Send it for review?",
+    "cert.sent": "✅ Your certificate was sent for review. You'll get a message with the result.",
+    "cert.limit": "You can add up to {max} certificates. Remove the ones you don't need.",
+    "cert.notify_new": "🏆 <b>{group}</b>: {name} sent a certificate: {cert}",
+    "cert.notify_approved": "✅ Your certificate was accepted: <b>{cert}</b>",
+    "cert.notify_rejected": "❌ Your certificate was not accepted: <b>{cert}</b>",
+    "cert.reason": "Reason: <i>{reason}</i>",
+    "cert.cannot_delete": "An accepted certificate can't be removed.",
+    "cert.delete_confirm": "Remove <b>{cert}</b>?",
+    "cert.deleted": "🗑 Removed",
+    "cert.queue": "🏆 <b>Awaiting review:</b> {n} certificates",
+    "cert.queue_empty": "✅ No certificates are waiting for review.",
+    "cert.student_list": "🏆 <b>{name}</b>: {n} certificates",
+    "cert.not_found": "Certificate not found.",
+    "cert.sent_at": "📅 Sent {at}",
+    "cert.approved": "✅ Accepted",
+    "cert.rejected": "❌ Rejected. The student has been told.",
+    "cert.reason_prompt": (
+        "Why isn't <b>{cert}</b> accepted? Type the reason: the student will see it.\n"
+        "<i>Or press «Skip».</i>"
+    ),
     # ---------------------------------------------------------------- staff login
     "login.username": "🔐 <b>Staff sign-in</b>\n\nEnter your <b>username</b>:",
     "login.password": "Now enter your <b>password</b>.\n<i>The message will be deleted right away.</i>",
@@ -320,6 +412,7 @@ TEXTS: dict[str, str] = {
     "cmd.login": "Staff sign-in",
     "cmd.students": "Browse students",
     "cmd.find": "Search students",
+    "cmd.certificates": "Certificates to review",
     "cmd.export": "Excel export",
     "cmd.logout": "Sign out",
     "cmd.admin": "Admin panel",

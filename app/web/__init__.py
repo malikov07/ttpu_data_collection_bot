@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import BASE_DIR, Settings
-from app.web import routes_accounts, routes_admin, routes_auth, routes_groups, routes_students
+from app.web import routes_accounts, routes_admin, routes_auth, routes_certificates, routes_groups, routes_students
 from app.web.deps import csrf_protect
 
 FRONTEND_DIST = BASE_DIR / "web" / "dist"
@@ -54,7 +54,7 @@ def create_app(
     app.state.bot = bot
     app.state.login_failures = defaultdict(deque)  # sign-in rate limit per login / IP
 
-    for module in (routes_auth, routes_students, routes_groups, routes_accounts, routes_admin):
+    for module in (routes_auth, routes_students, routes_certificates, routes_groups, routes_accounts, routes_admin):
         app.include_router(module.router)
     app.include_router(routes_students.export_router)
 

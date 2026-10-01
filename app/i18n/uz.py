@@ -23,12 +23,14 @@ TEXTS: dict[str, str] = {
         "Bu bot Toshkent shahridagi Turin politexnika universiteti uchun maʼlumotlaringizni yigʻadi.\n\n"
         "• /start: asosiy menyu\n"
         "• /language: tilni oʻzgartirish\n"
-        "• /cancel: joriy amalni toʻxtatish\n\n"
+        "• /cancel: joriy amalni toʻxtatish\n"
+        "• 🏆 Sertifikatlarim: IELTS, SAT, CEFR va boshqa sertifikatlarni qoʻshish\n\n"
         "Xodimlar uchun: /login"
     ),
     "help.staff": (
         "ℹ️ <b>Xodimlar uchun yordam</b>\n\n"
         "• /students: talabalar roʻyxati\n"
+        "• /certificates: tekshirilishi kerak boʻlgan sertifikatlar\n"
         "• /find <i>matn</i>: ism, telefon, hujjat yoki @username boʻyicha qidirish\n"
         "• /export: talabalaringiz Excel fayli\n"
         "• /logout: bu Telegram’ni akkauntingizdan uzish\n"
@@ -43,7 +45,8 @@ TEXTS: dict[str, str] = {
         "Bu taxminan <b>3 daqiqa</b> vaqt oladi. Tayyorlab qoʻying:\n"
         "🪪 pasport yoki ID karta\n"
         "🖼 3×4 rasm\n"
-        "📄 rezyume (PDF yoki Word)\n\n"
+        "📄 rezyume (PDF yoki Word)\n"
+        "🏆 sertifikatlar (IELTS, SAT…), agar boʻlsa\n\n"
         "🔒 Maʼlumotlaringiz <b>universitetning oʻz serverida</b> oʻqiladi, hech qanday tashqi "
         "yoki sunʼiy intellekt xizmatlariga yuborilmaydi. Ularni faqat guruh sardoringiz va "
         "tyutorlar koʻradi (Oʻzbekiston Respublikasining “Shaxsga doir maʼlumotlar toʻgʻrisida”gi Qonuni).\n\n"
@@ -140,7 +143,8 @@ TEXTS: dict[str, str] = {
     "docs.line": "🪪 Hujjat {passport}   🖼 Rasm {photo}   📄 Rezyume {cv}",
     "reg.done": (
         "🎉 <b>Tayyor! Maʼlumotlaringiz yuborildi.</b>\n\n"
-        "Biror narsa notoʻgʻri boʻlsa, tyutor yoki guruh sardoriga murojaat qiling: ular tuzatib beradi."
+        "Biror narsa notoʻgʻri boʻlsa, tyutor yoki guruh sardoriga murojaat qiling: ular tuzatib beradi.\n\n"
+        "🏆 Keyinroq yana sertifikat qoʻshish uchun «🏆 Sertifikatlarim»dan foydalaning."
     ),
     "reg.locked": "🔒 Maʼlumotlaringiz allaqachon yuborilgan va ularni botda oʻzgartirib boʻlmaydi.\nBiror narsa notoʻgʻri boʻlsa, tyutor yoki guruh sardoriga murojaat qiling: ular tuzatib beradi.",
     "reg.closed": "⏸ Hozircha maʼlumotlar qabul qilinmayapti. Keyinroq urinib koʻring.",
@@ -179,6 +183,94 @@ TEXTS: dict[str, str] = {
     "gender.female": "Ayol",
     "doctype.passport": "Pasport",
     "doctype.id_card": "ID karta",
+    # ---------------------------------------------------------------- certificates
+    "step.certs": "🏆 Sertifikatlar",
+    "reg.certs": (
+        "Sizda <b>IELTS, TOEFL, SAT, CEFR</b>, milliy sertifikat, olimpiada diplomi yoki boshqa mukofotlar bormi? "
+        "Har birini qoʻshing: PDF yoki rasm.\n\n"
+        "<i>Sertifikatingiz yoʻqmi? «Sertifikatim yoʻq»ni bosing.</i>"
+    ),
+    "reg.certs_added": "<b>Qoʻshilgan:</b>\n{list}",
+    "reg.no_certs": "sertifikat yoʻq",
+    "btn.no_certs": "Sertifikatim yoʻq ›",
+    "btn.continue": "Davom etish ›",
+    "btn.cert_add_it": "✅ Qoʻshish",
+    "field.certs": "🏆 Sertifikatlar",
+    "cert.added": "✅ Qoʻshildi",
+    "cert.confirm_reg": "Qoʻshilsinmi? U maʼlumotlaringiz bilan birga yuboriladi.",
+    "btn.certificates": "🏆 Sertifikatlarim",
+    "btn.review_certs": "🏆 Sertifikatlar",
+    "btn.add_certificate": "➕ Sertifikat qoʻshish",
+    "btn.student_certs": "🏆 Sertifikatlar ({n})",
+    "btn.cert_approve": "✅ Qabul qilish",
+    "btn.cert_reject": "❌ Rad etish",
+    "btn.cert_open": "🏆 Koʻrib chiqish",
+    "cert.type.ielts": "IELTS",
+    "cert.type.toefl": "TOEFL iBT",
+    "cert.type.sat": "SAT",
+    "cert.type.duolingo": "Duolingo",
+    "cert.type.cefr": "CEFR",
+    "cert.type.national": "Milliy sertifikat",
+    "cert.type.olympiad": "Olimpiada / mukofot",
+    "cert.type.other": "Boshqa",
+    "cert.status.pending": "⏳ tekshirilmoqda",
+    "cert.status.approved": "✅ qabul qilindi",
+    "cert.status.rejected": "❌ qabul qilinmadi",
+    "cert.summary": "🏆 Sertifikatlar: {n}",
+    "cert.summary_pending": "⏳ {n} tasi tekshirilmoqda",
+    "cert.mine_title": "🏆 <b>Sertifikatlarim</b>",
+    "cert.mine_empty": (
+        "🏆 <b>Sertifikatlarim</b>\n\n"
+        "Hali sertifikat qoʻshmagansiz.\n\n"
+        "IELTS, TOEFL, SAT, CEFR, milliy sertifikat, olimpiada va boshqa mukofotlaringizni qoʻshing: "
+        "universitet xodimlari ularni tekshiradi."
+    ),
+    "cert.mine_tip": "Har bir sertifikatni xodimlar tekshiradi. Natija haqida sizga xabar keladi.",
+    "cert.pick_type": "🏆 <b>Yangi sertifikat</b>\n\nQaysi sertifikat?",
+    "cert.ask.ielts": "<b>Umumiy ballingizni</b> (overall band score) yuboring.\n<i>Masalan: 6.5</i>",
+    "cert.ask.toefl": "<b>Umumiy ballingizni</b> yuboring (0–120).\n<i>Masalan: 95</i>",
+    "cert.ask.sat": "<b>Umumiy ballingizni</b> yuboring (400–1600).\n<i>Masalan: 1350</i>",
+    "cert.ask.duolingo": "<b>Umumiy ballingizni</b> yuboring (10–160).\n<i>Masalan: 120</i>",
+    "cert.ask.cefr": "<b>Darajangizni</b> tanlang.",
+    "cert.ask.national": "<b>Fan va darajani</b> yozing.\n<i>Masalan: Matematika A+</i>",
+    "cert.ask.olympiad": "<b>Olimpiada yoki mukofot</b> nomini va oʻrningizni yozing.\n<i>Masalan: Viloyat matematika olimpiadasi, 1-oʻrin</i>",
+    "cert.ask.other": "<b>Sertifikat nomi va natijasini</b> yozing.\n<i>Masalan: Cambridge C1 Advanced, A</i>",
+    "cert.err.ielts": "❌ IELTS bali 0 dan 9 gacha, 0.5 qadam bilan boʻladi. Masalan: <code>6.5</code>.",
+    "cert.err.toefl": "❌ TOEFL iBT bali 0 dan 120 gacha butun son. Masalan: <code>95</code>.",
+    "cert.err.sat": "❌ SAT bali 400 dan 1600 gacha, 10 qadam bilan boʻladi. Masalan: <code>1350</code>.",
+    "cert.err.duolingo": "❌ Duolingo bali 10 dan 160 gacha, 5 qadam bilan boʻladi. Masalan: <code>120</code>.",
+    "cert.err.cefr": "❌ Darajani tugmalardan tanlang: A1, A2, B1, B2, C1 yoki C2.",
+    "cert.err.description": "❌ Qisqacha yozing: 3–100 ta belgi.",
+    "cert.err.type_text": "❌ Iltimos, matn bilan yozing.",
+    "cert.err.file_type": "❌ Sertifikatni PDF yoki rasm sifatida yuboring.",
+    "cert.err.pdf_after_photos": "❌ Yo bitta PDF, yo rasmlar yuboring. Oxirgi rasmdan keyin «Tayyor»ni bosing.",
+    "cert.ask_files": (
+        "Sertifikatni yuboring: <b>PDF</b> fayl yoki <b>rasm</b>.\n"
+        "<i>Bir necha sahifa boʻlsa, rasmlarni ketma-ket yuboring (koʻpi bilan {max} ta) va «Tayyor»ni bosing.</i>"
+    ),
+    "cert.ask_files_short": "❌ Iltimos, sertifikatni PDF yoki rasm sifatida yuboring.",
+    "cert.files": "📎 Fayllar: {n}",
+    "cert.confirm": "Tekshirish uchun yuborilsinmi?",
+    "cert.sent": "✅ Sertifikatingiz tekshirish uchun yuborildi. Natija haqida sizga xabar keladi.",
+    "cert.limit": "Koʻpi bilan {max} ta sertifikat qoʻshish mumkin. Keraksizlarini oʻchiring.",
+    "cert.notify_new": "🏆 <b>{group}</b>: {name} sertifikat yubordi: {cert}",
+    "cert.notify_approved": "✅ Sertifikatingiz qabul qilindi: <b>{cert}</b>",
+    "cert.notify_rejected": "❌ Sertifikatingiz qabul qilinmadi: <b>{cert}</b>",
+    "cert.reason": "Sababi: <i>{reason}</i>",
+    "cert.cannot_delete": "Qabul qilingan sertifikatni oʻchirib boʻlmaydi.",
+    "cert.delete_confirm": "<b>{cert}</b> oʻchirilsinmi?",
+    "cert.deleted": "🗑 Oʻchirildi",
+    "cert.queue": "🏆 <b>Tekshirilishi kerak:</b> {n} ta sertifikat",
+    "cert.queue_empty": "✅ Tekshirilishi kerak boʻlgan sertifikatlar yoʻq.",
+    "cert.student_list": "🏆 <b>{name}</b>: {n} ta sertifikat",
+    "cert.not_found": "Sertifikat topilmadi.",
+    "cert.sent_at": "📅 Yuborilgan: {at}",
+    "cert.approved": "✅ Qabul qilindi",
+    "cert.rejected": "❌ Rad etildi. Talabaga xabar yuborildi.",
+    "cert.reason_prompt": (
+        "<b>{cert}</b> nega qabul qilinmadi? Sababini yozing: talaba uni koʻradi.\n"
+        "<i>Yoki «Oʻtkazib yuborish»ni bosing.</i>"
+    ),
     # ---------------------------------------------------------------- staff login
     "login.username": "🔐 <b>Xodimlar uchun kirish</b>\n\n<b>Login</b>ingizni kiriting:",
     "login.password": "Endi <b>parol</b>ni kiriting.\n<i>Xabar darhol oʻchiriladi.</i>",
@@ -317,6 +409,7 @@ TEXTS: dict[str, str] = {
     "cmd.login": "Xodimlar uchun kirish",
     "cmd.students": "Talabalar roʻyxati",
     "cmd.find": "Talabalarni qidirish",
+    "cmd.certificates": "Tekshiriladigan sertifikatlar",
     "cmd.export": "Excelga eksport",
     "cmd.logout": "Chiqish",
     "cmd.admin": "Boshqaruv paneli",

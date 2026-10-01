@@ -51,6 +51,23 @@ class DocType(StrEnum):
     ID_CARD = "id_card"
 
 
+class CertType(StrEnum):
+    IELTS = "ielts"
+    TOEFL = "toefl"
+    SAT = "sat"
+    DUOLINGO = "duolingo"
+    CEFR = "cefr"
+    NATIONAL = "national"  # "Milliy sertifikat" (subject + grade)
+    OLYMPIAD = "olympiad"  # olympiads and other awards
+    OTHER = "other"
+
+
+class CertStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 def _enum(e: type[StrEnum]) -> Enum:
     # Store enum *values* as plain strings so the DB stays readable and portable.
     return Enum(e, native_enum=False, length=16, values_callable=lambda x: [m.value for m in x])
@@ -114,6 +131,9 @@ class Student(Base):
     documents: Mapped[list[Document]] = relationship(
         back_populates="student", cascade="all, delete-orphan", order_by="Document.kind"
     )
+    certificates: Mapped[list[Certificate]] = relationship(
+        back_populates="student", cascade="all, delete-orphan", order_by="Certificate.id"
+    )
 
     def document(self, kind: DocumentKind) -> Document | None:
         return next((d for d in self.documents if d.kind == kind), None)
@@ -142,6 +162,29 @@ class Document(Base):
     updated_at: Mapped[datetime] = mapped_column(default=utcnow, onupdate=utcnow)
 
     student: Mapped[Student] = relationship(back_populates="documents")
+
+
+class Certificate(Base):
+    """A certificate or award a student sent (IELTS, SAT, olympiad…), reviewed by staff.
+
+    ``result`` is the score or level for tests ("7.5", "1450", "B2") and a short
+    description for the others ("Mathematics A+"). ``files`` as in Document.
+    """
+
+    __tablename__ = "certificates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    type: Mapped[CertType] = mapped_column(_enum(CertType))
+    result: Mapped[str] = mapped_column(String(100))
+    files: Mapped[list[dict]] = mapped_column(JSON)
+    status: Mapped[CertStatus] = mapped_column(_enum(CertStatus), default=CertStatus.PENDING, index=True)
+    note: Mapped[str | None] = mapped_column(Text)  # why it wasn't accepted (the student sees it)
+    reviewed_by: Mapped[str | None] = mapped_column(String(64))
+    reviewed_at: Mapped[datetime | None]
+    created_at: Mapped[datetime] = mapped_column(default=utcnow)
+
+    student: Mapped[Student] = relationship(back_populates="certificates")
 
 
 class Account(Base):

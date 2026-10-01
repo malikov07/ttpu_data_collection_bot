@@ -22,7 +22,7 @@ from app.config import Settings
 from app.db import create_engine, create_session_factory, init_db, repo
 from app.db.fsm_storage import DbStorage
 from app.db.models import StaffRole
-from app.handlers import admin, common, registration, staff
+from app.handlers import admin, certificates, common, registration, staff
 from app.middlewares import DbSessionMiddleware, UserContextMiddleware
 from app.services import vision
 from app.services.mrz import find_mrz
@@ -30,7 +30,7 @@ from app.services.vision import DocumentResult
 from tests.mrz_samples import td1, td3
 
 BOT_USER = User(id=123456, is_bot=True, first_name="TTPU bot", username="ttpu_test_bot")
-ROUTERS = (common.router, admin.router, staff.router, registration.router, common.fallback_router)
+ROUTERS = (common.router, admin.router, staff.router, certificates.router, registration.router, common.fallback_router)
 _ids = itertools.count(1000)
 
 

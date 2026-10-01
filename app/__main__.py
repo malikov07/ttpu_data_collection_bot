@@ -18,7 +18,7 @@ from app.config import get_settings
 from app.db import create_engine, create_session_factory, init_db
 from app.db.fsm_storage import DbStorage
 from app.db.repo import Access
-from app.handlers import admin, common, registration, staff
+from app.handlers import admin, certificates, common, registration, staff
 from app.i18n import t
 from app.middlewares import DbSessionMiddleware, UserContextMiddleware
 from app.services import vision
@@ -81,7 +81,9 @@ async def main() -> None:
     dp.update.outer_middleware(DbSessionMiddleware(session_factory))
     dp.update.outer_middleware(UserContextMiddleware(settings))
     # Order matters: generic handlers (cancel, /start) first, catch-all last.
-    dp.include_routers(common.router, admin.router, staff.router, registration.router, common.fallback_router)
+    dp.include_routers(
+        common.router, admin.router, staff.router, certificates.router, registration.router, common.fallback_router
+    )
     dp.errors.register(on_error)
 
     background: list[asyncio.Task] = []

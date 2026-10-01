@@ -21,7 +21,7 @@ from app.services.export import students_xlsx
 from app.services.prefs import load_prefs
 from app.services.validators import ValidationError, age_on, normalize_name_part, normalize_phone
 from app.web.deps import DB, AdminUser, BotDep, SettingsDep, StaffUser
-from app.web.serializers import student_json
+from app.web.serializers import certificate_json, student_json
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/students", tags=["students"])
@@ -116,6 +116,7 @@ async def get_student(student_id: int, user: StaffUser, session: DB) -> dict:
         )
     ).all()
     data = student_json(student)
+    data["certificates"] = [certificate_json(c) for c in student.certificates]
     data["can_edit"] = user.can_edit_group(student.group_id)
     data["can_delete"] = user.access.is_admin
     data["history"] = [{"at": h.at.isoformat(), "actor": h.actor, "action": h.action, "details": h.details} for h in history]

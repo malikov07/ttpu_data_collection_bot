@@ -6,9 +6,10 @@ from datetime import date, datetime, timezone
 from html import escape
 from zoneinfo import ZoneInfo
 
-from app.db.models import Account, DocType, DocumentKind, Gender, StaffRole, Student
+from app.db.models import Account, Certificate, CertStatus, DocType, DocumentKind, Gender, StaffRole, Student
 from app.db.repo import Access
 from app.i18n import Translator
+from app.services import certificates as certs
 from app.services.validators import age_on, format_phone
 
 
@@ -43,12 +44,48 @@ def docs_line(_: Translator, *, passport: bool, photo: bool, cv: bool) -> str:
 
 
 def student_docs_line(_: Translator, s: Student) -> str:
-    return docs_line(
+    line = docs_line(
         _,
         passport=s.document(DocumentKind.PASSPORT) is not None,
         photo=s.document(DocumentKind.PHOTO) is not None,
         cv=s.document(DocumentKind.CV) is not None,
     )
+    if s.certificates:
+        pending = sum(c.status == CertStatus.PENDING for c in s.certificates)
+        line += "\n" + _("cert.summary", n=len(s.certificates))
+        if pending:
+            line += " · " + _("cert.summary_pending", n=pending)
+    return line
+
+
+def render_my_certificates(_: Translator, items: list[Certificate]) -> str:
+    """The student's own list, with the status of each certificate."""
+    if not items:
+        return _("cert.mine_empty")
+    lines = [_("cert.mine_title"), ""]
+    for i, c in enumerate(items, start=1):
+        lines.append(f"{i}. <b>{escape(certs.label(_.lang, c))}</b> · {_(f'cert.status.{c.status.value}')}")
+        if c.status == CertStatus.REJECTED and c.note:
+            lines.append(f"    <i>{escape(c.note)}</i>")
+    lines += ["", _("cert.mine_tip")]
+    return "\n".join(lines)
+
+
+def render_certificate(_: Translator, c: Certificate, tz: ZoneInfo) -> str:
+    """A certificate for staff: what, whose, when, and the review so far."""
+    s = c.student
+    lines = [
+        f"🏆 <b>{escape(certs.label(_.lang, c))}</b>",
+        f"👤 {escape(s.full_name)} · {escape(s.group.name)}",
+        _("cert.sent_at", at=fmt_dt(c.created_at, tz)),
+        "",
+        _(f"cert.status.{c.status.value}"),
+    ]
+    if c.reviewed_by and c.reviewed_at and c.status != CertStatus.PENDING:
+        lines[-1] += f" · {escape(c.reviewed_by)}, {fmt_dt(c.reviewed_at, tz)}"
+    if c.status == CertStatus.REJECTED and c.note:
+        lines.append(_("cert.reason", reason=escape(c.note)))
+    return "\n".join(lines)
 
 
 def render_profile(_: Translator, s: Student, tz: ZoneInfo) -> str:
@@ -99,7 +136,9 @@ def render_review(_: Translator, data: dict) -> str:
         group=escape(data.get("group_name") or "—"),
         docs=docs_line(
             _, passport=bool(data.get("passport_files")), photo=bool(data.get("photo_files")), cv=bool(data.get("cv_files"))
-        ),
+        )
+        + "\n🏆 "
+        + (", ".join(escape(certs.describe(_.lang, c["type"], c["result"])) for c in data.get("reg_certs") or []) or _("reg.no_certs")),
     )
 
 

@@ -23,9 +23,10 @@ Everything runs as **one process** on one server with **PostgreSQL** (SQLite for
 1. **Document.** The student sends a photo of the passport's main page, or of the **back** of the ID card. The bot reads the machine-readable zone (the lines with `<<<`): surname, name, date of birth, gender, document number, expiry date, PINFL and nationality. For an ID card, it then asks for the front side.
 2. **Check.** The bot shows what it read and suggests the patronymic from the printed text (it isn't in the machine-readable lines), or asks for it. The student confirms.
 3. **Phone** (share-contact button), **group**, **3×4 photo**, **CV** (PDF, Word, or photos of pages).
-4. **Review card** with the 3×4 photo, then **Submit**. The group's leaders get a Telegram notification.
+4. **Certificates** (optional): IELTS, SAT, CEFR, olympiads… each as a PDF or photos, or «I have none». See below.
+5. **Review card** with the 3×4 photo, then **Submit**. The group's leaders get a Telegram notification.
 
-Before submitting, the student can fix any field separately: surname, name, patronymic and gender (in case glare garbled them), phone, group, photo, CV, or a new document photo. Values protected by check digits (document number, expiry, PINFL, date of birth) can only change with a new photo. Anything the student typed instead of what was read is shown in the activity log.
+Before submitting, the student can fix any field separately: surname, name, patronymic and gender (in case glare garbled them), phone, group, photo, CV, certificates, or a new document photo. Values protected by check digits (document number, expiry, PINFL, date of birth) can only change with a new photo. Anything the student typed instead of what was read is shown in the activity log.
 
 **After submitting, the data is locked for the student.** Only staff can correct it (website or bot).
 
@@ -38,6 +39,17 @@ The bot asks for a new photo, with the reason, when:
 Every value protected by the document's check digits must match, so misread data isn't accepted silently.
 
 Each step replaces the previous screen, so the chat stays short. Error messages replace each other instead of piling up.
+
+## Certificates and awards
+
+Students add certificates in the registration form (step 7, after the CV), and later with **🏆 My certificates** in the bot: IELTS, TOEFL iBT, SAT, Duolingo, CEFR, the national certificate (Milliy sertifikat), olympiads and other awards.
+
+1. The student chooses the type and enters the result. Scores are checked (IELTS 0–9 in steps of 0.5, TOEFL 0–120, SAT 400–1600, Duolingo 10–160, CEFR A1–C2). The national certificate, olympiads and "other" take a short description, e.g. *Mathematics A+*.
+2. They send the certificate as a PDF or photos of its pages.
+3. It is saved when the form is submitted (or right away from «My certificates») and waits for review. The group's leaders get a Telegram message (if **Notify group leaders** is on).
+4. Staff **accept** or **reject** it (optionally with a reason) on the website (**Certificates**, or the student's page) or in the bot (**🏆 Certificates**, `/certificates`, or the student card). The student gets a message with the decision.
+
+Students can remove a certificate until it is accepted (up to 20 per student). Accepted certificates, and those under review, are listed in the Excel export.
 
 ## Privacy
 
@@ -149,6 +161,7 @@ Server settings live in `.env` (see [.env.example](.env.example)). Admins can ch
 | Student card with photo, passport, CV | ✔ (in-page viewer) | ✔ |
 | Edit name, patronymic, birth date, gender, phone, group | ✔ | ✔ |
 | Edit document number / expiry / PINFL, replace files | ✔ | |
+| Review certificates (accept / reject with a reason) | ✔ | ✔ `/certificates` |
 | Excel export (in the user's language) | ✔ | ✔ `/export` |
 | Delete students (admins) | ✔ | ✔ |
 | Groups (incl. import from EduPage), staff accounts, settings (admins) | ✔ | ✔ `/admin` |
@@ -185,7 +198,7 @@ After changing `app/db/models.py`, create a migration with `.venv/bin/alembic re
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest          # 108 tests, including the real OCR/face models on synthetic images
+.venv/bin/python -m pytest          # 134 tests, including the real OCR/face models on synthetic images
 (cd web && npm run typecheck)       # frontend types and translation completeness
 ```
 

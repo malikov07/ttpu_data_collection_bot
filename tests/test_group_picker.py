@@ -105,6 +105,7 @@ async def test_tutor_browses_by_program_and_moves_a_student(h):
     await h.text(u, "IT1-25")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    await h.click(u, "reg:certs_done")  # no certificates
     await h.click(u, "reg:submit")
 
     await h.create_account("tutor", StaffRole.TUTOR)

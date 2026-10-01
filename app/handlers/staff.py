@@ -27,12 +27,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import keyboards as kb
-from app.callbacks import StaffCb
+from app.callbacks import CertReviewCb, StaffCb
 from app.config import Settings
 from app.db import repo
-from app.db.models import DocumentKind, Gender, Group, Student, User
+from app.db.models import Certificate, CertStatus, DocumentKind, Gender, Group, Student, User
 from app.db.repo import Access
 from app.i18n import Translator, menu_buttons, variants
+from app.services import certificates as certs
 from app.services.documents import read_upload
 from app.services.export import students_xlsx
 from app.services.prefs import Prefs
@@ -43,7 +44,7 @@ from app.services.validators import (
     parse_birth_date,
 )
 from app.states import StaffStates
-from app.views import fmt_date, render_staff_card
+from app.views import fmt_date, render_certificate, render_staff_card
 
 log = logging.getLogger(__name__)
 router = Router(name="staff")
@@ -395,6 +396,163 @@ async def on_delete_ok(cb: CallbackQuery, callback_data: StaffCb, session: Async
     await session.commit()
     await cb.answer()
     await cb.message.edit_text(_("staff.deleted", name=escape(name)))
+
+
+# ------------------------------------------------------------------ certificates
+
+
+@router.message(Command("certificates"))
+@router.message(F.text.in_(variants("btn.review_certs")))
+async def cmd_certificates(message: Message, state: FSMContext, session: AsyncSession, access: Access, _: Translator) -> None:
+    """Certificates waiting for a decision, newest first."""
+    await state.clear()
+    visible = access.visible_group_ids()
+    items = await repo.list_certificates(session, visible, status=CertStatus.PENDING)
+    if not items:
+        await message.answer(_("cert.queue_empty"))
+        return
+    total = await repo.count_certificates(session, visible, CertStatus.PENDING)
+    await message.answer(_("cert.queue", n=total), reply_markup=kb.cert_list_kb(_, items, student=True))
+
+
+@router.callback_query(CertReviewCb.filter(F.action == "student"))
+async def on_student_certificates(cb: CallbackQuery, callback_data: CertReviewCb, session: AsyncSession, access: Access, _: Translator) -> None:
+    student = await _visible_student(session, access, callback_data.id)
+    if student is None or not student.certificates:
+        await cb.answer(_("staff.not_found"), show_alert=True)
+        return
+    await cb.answer()
+    await cb.message.answer(
+        _("cert.student_list", name=escape(student.full_name), n=len(student.certificates)),
+        reply_markup=kb.cert_list_kb(_, student.certificates, student=False),
+    )
+
+
+async def _visible_certificate(session: AsyncSession, access: Access, cert_id: int) -> Certificate | None:
+    cert = await repo.get_certificate(session, cert_id)
+    if cert is None or not access.can_view_group(cert.student.group_id):
+        return None
+    return cert
+
+
+def _review_markup(_: Translator, cert: Certificate, access: Access) -> InlineKeyboardMarkup:
+    return kb.cert_review_kb(_, cert, can_review=access.can_edit_group(cert.student.group_id))
+
+
+@router.callback_query(CertReviewCb.filter(F.action == "open"))
+async def on_open_certificate(
+    cb: CallbackQuery, callback_data: CertReviewCb, session: AsyncSession, access: Access, _: Translator, settings: Settings, bot: Bot
+) -> None:
+    cert = await _visible_certificate(session, access, callback_data.id)
+    if cert is None:
+        await cb.answer(_("cert.not_found"), show_alert=True)
+        return
+    await cb.answer()
+    await repo.audit(
+        session, repo.actor_of(access, cb.from_user.id), "certificate.view", entity="student", entity_id=cert.student_id,
+        summary=f"{certs.label('en', cert)} · {cert.student.full_name}",
+    )
+    await session.commit()
+    caption = escape(certs.label(_.lang, cert))
+    try:
+        await send_files(bot, cb.message.chat.id, cert.files, caption, settings.uploads_dir)
+    except Exception as e:  # the file is unavailable: still show the certificate
+        log.warning("Could not send files of certificate %s: %s", cert.id, e)
+    text = render_certificate(_, cert, ZoneInfo(settings.timezone))
+    await bot.send_message(cb.message.chat.id, text, reply_markup=_review_markup(_, cert, access))
+
+
+async def _decide(
+    session: AsyncSession, cert: Certificate, status: CertStatus, note: str | None, access: Access, telegram_id: int, bot: Bot
+) -> None:
+    repo.review_certificate(cert, status, repo.actor_of(access, telegram_id), note)
+    action = "certificate.approve" if status == CertStatus.APPROVED else "certificate.reject"
+    await repo.audit(
+        session, repo.actor_of(access, telegram_id), action, entity="student", entity_id=cert.student_id,
+        summary=f"{certs.label('en', cert)} · {cert.student.full_name}", details={"reason": note} if note else None,
+    )
+    await session.commit()
+    await certs.notify_student(bot, session, cert)
+
+
+async def _reviewable(cb: CallbackQuery, session: AsyncSession, access: Access, _: Translator, cert_id: int) -> Certificate | None:
+    cert = await _visible_certificate(session, access, cert_id)
+    if cert is None or not access.can_edit_group(cert.student.group_id):
+        await cb.answer(_("access_denied"), show_alert=True)
+        return None
+    return cert
+
+
+async def _show_decision(bot: Bot, chat_id: int, message_id: int | None, cert: Certificate, access: Access, _: Translator, settings: Settings) -> None:
+    """Update the certificate message with the new status."""
+    text = render_certificate(_, cert, ZoneInfo(settings.timezone))
+    with contextlib.suppress(Exception):
+        await bot.edit_message_text(text, chat_id=chat_id, message_id=message_id, reply_markup=_review_markup(_, cert, access))
+
+
+@router.callback_query(CertReviewCb.filter(F.action == "ok"))
+async def on_approve_certificate(
+    cb: CallbackQuery, callback_data: CertReviewCb, session: AsyncSession, access: Access, _: Translator, settings: Settings, bot: Bot
+) -> None:
+    if (cert := await _reviewable(cb, session, access, _, callback_data.id)) is None:
+        return
+    await _decide(session, cert, CertStatus.APPROVED, None, access, cb.from_user.id, bot)
+    await cb.answer(_("cert.approved"))
+    await _show_decision(bot, cb.message.chat.id, cb.message.message_id, cert, access, _, settings)
+
+
+@router.callback_query(CertReviewCb.filter(F.action == "no"))
+async def on_reject_certificate(
+    cb: CallbackQuery, callback_data: CertReviewCb, state: FSMContext, session: AsyncSession, access: Access, _: Translator
+) -> None:
+    if (cert := await _reviewable(cb, session, access, _, callback_data.id)) is None:
+        return
+    await cb.answer()
+    prompt = await cb.message.answer(
+        _("cert.reason_prompt", cert=escape(certs.label(_.lang, cert))),
+        reply_markup=kb.skip_kb(_, CertReviewCb(action="skip", id=cert.id).pack()),
+    )
+    await state.set_state(StaffStates.cert_reason)
+    await state.update_data(cert_id=cert.id, screen_id=prompt.message_id, review_msg=cb.message.message_id)
+
+
+async def _reject(
+    chat_id: int, state: FSMContext, session: AsyncSession, access: Access, _: Translator, settings: Settings, bot: Bot,
+    cert: Certificate, note: str | None,
+) -> None:
+    data = await state.get_data()
+    # The bot works in private chats only: the chat id is the reviewer's Telegram id.
+    await _decide(session, cert, CertStatus.REJECTED, note, access, chat_id, bot)
+    with contextlib.suppress(Exception):
+        await bot.delete_message(chat_id, data.get("screen_id"))
+    await state.clear()
+    await _show_decision(bot, chat_id, data.get("review_msg"), cert, access, _, settings)
+    await bot.send_message(chat_id, _("cert.rejected"))
+
+
+@router.message(StaffStates.cert_reason, F.text, ~F.text.startswith("/"), ~F.text.in_(menu_buttons()))
+async def on_reject_reason(
+    message: Message, state: FSMContext, session: AsyncSession, access: Access, _: Translator, settings: Settings, bot: Bot
+) -> None:
+    data = await state.get_data()
+    cert = await _visible_certificate(session, access, data.get("cert_id", 0))
+    if cert is None or not access.can_edit_group(cert.student.group_id):
+        await state.clear()
+        await message.answer(_("access_denied"))
+        return
+    note = " ".join(message.text.split())[:500]
+    await _reject(message.chat.id, state, session, access, _, settings, bot, cert, note)
+
+
+@router.callback_query(StaffStates.cert_reason, CertReviewCb.filter(F.action == "skip"))
+async def on_reject_skip(
+    cb: CallbackQuery, callback_data: CertReviewCb, state: FSMContext, session: AsyncSession, access: Access, _: Translator,
+    settings: Settings, bot: Bot,
+) -> None:
+    if (cert := await _reviewable(cb, session, access, _, callback_data.id)) is None:
+        return
+    await cb.answer()
+    await _reject(cb.message.chat.id, state, session, access, _, settings, bot, cert, None)
 
 
 # ------------------------------------------------------------------ search

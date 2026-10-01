@@ -11,6 +11,7 @@ import "./index.css";
 import { ApiError } from "./lib/api";
 import { RequireAuth } from "./lib/auth";
 import { ActivityPage } from "./pages/Activity";
+import { CertificatesPage } from "./pages/Certificates";
 import { DashboardPage } from "./pages/Dashboard";
 import { GroupsPage } from "./pages/Groups";
 import { LoginPage } from "./pages/Login";
@@ -69,6 +70,7 @@ function App() {
         <Route index element={<DashboardPage />} />
         <Route path="students" element={<StudentsPage />} />
         <Route path="students/:id" element={<StudentDetailPage />} />
+        <Route path="certificates" element={<CertificatesPage />} />
         <Route path="groups" element={<GroupsPage />} />
         <Route path="password" element={<ChangePasswordPage />} />
         <Route path="accounts" element={<RequireAuth admin><AccountsPage /></RequireAuth>} />

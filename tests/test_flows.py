@@ -45,6 +45,7 @@ async def register(h, uid=100, group="SE-24-01", lang="en", **passport):
     await h.text(u, group)
     await h.photo(u, f"face-{uid}", size=(600, 800))
     await h.document(u, f"cv{uid}.pdf", "application/pdf")
+    await h.click(u, "reg:certs_done")  # no certificates
     await h.click(u, "reg:submit")
     return u
 
@@ -58,7 +59,7 @@ async def test_passport_registration(h):
     await setup_groups(h)
     h.vision.documents["pass-100"] = passport_result()
     u = await start_registration(h, 100)
-    assert "Document" in h.tg.texts(100)[-1] and "1/6" in h.tg.texts(100)[-1]
+    assert "Document" in h.tg.texts(100)[-1] and "1/7" in h.tg.texts(100)[-1]
 
     await h.photo(u, "pass-100")
     check = h.tg.texts(100)[-1]
@@ -69,6 +70,7 @@ async def test_passport_registration(h):
     await h.text(u, "se-24-01")
     await h.photo(u, "face-100", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    await h.click(u, "reg:certs_done")  # no certificates
     review = h.tg.last(methods.SendPhoto)  # review card shows the 3x4 photo
     assert review.photo == "face-100" and "Aliyev Vali Karimovich" in review.caption
     await h.click(u, "reg:submit")
@@ -107,6 +109,7 @@ async def test_id_card_needs_front_and_patronymic(h):
     await h.text(u, "SE-24-02")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    await h.click(u, "reg:certs_done")  # no certificates
     await h.click(u, "reg:submit")
     s = await student(h, 200)
     assert s.doc_type == DocType.ID_CARD and s.middle_name == "Anvar qizi" and s.gender == Gender.FEMALE
@@ -144,6 +147,7 @@ async def test_student_fixes_misread_fields_one_by_one(h):
     await h.text(u, "SE-24-01")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    await h.click(u, "reg:certs_done")  # no certificates
     # The review has the same per-field buttons.
     await h.click(u, "reg:edit")
     await h.click(u, h.button("Surname"))
@@ -223,6 +227,7 @@ async def test_submitted_data_is_locked_for_the_student(h):
     await h.text(u, "SE-24-01")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    await h.click(u, "reg:certs_done")  # no certificates
     assert "won't be able to change" in h.tg.last(methods.SendPhoto).caption  # warned before submitting
     await h.click(u, "reg:submit")
     assert any("contact your tutor" in t for t in h.tg.texts(100))
