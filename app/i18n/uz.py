@@ -415,9 +415,10 @@ TEXTS: dict[str, str] = {
     "cmd.admin": "Boshqaruv paneli",
     "cmd.backup": "Hozir zaxira nusxa",
     "backup.started": "⏳ Zaxira nusxa tayyorlanmoqda…",
-    "backup.caption": "🗄 <b>Zaxira nusxa</b> · {name}\n👥 Talabalar: {students} · 🎓 Guruhlar: {groups} · {size}",
+    "backup.caption": "🗄 <b>Zaxira nusxa</b> · {name}\n👥 Talabalar: {students} · 🎓 Guruhlar: {groups} · 📎 Fayllar: {files} · {size}",
     "backup.encrypted": "🔐 Shifrlangan. 7-Zip, WinRAR yoki Keka orqali zaxira paroli bilan oching (serverdagi BACKUP_PASSWORD).",
     "backup.not_encrypted": "⚠️ Shifrlanmagan: serverda BACKUP_PASSWORD ni oʻrnating. Faylni hech kimga yubormang: unda shaxsiy maʼlumotlar bor.",
-    "backup.too_big": "Fayl Telegram chegarasidan (50 MB) katta, shuning uchun faqat serverda saqlanadi.",
+    "backup.parts": "📦 {count} qismga boʻlingan (Telegram 50 MB gacha fayl qabul qiladi). Barcha qismlarni bitta papkaga saqlang va {first} ni 7-Zip yoki Keka bilan oching.",
+    "backup.missing": "⚠️ {count} ta fayl Telegramdan yuklab olinmadi: ularning roʻyxati arxivdagi {file} faylida.",
     "backup.failed": "❌ Zaxira nusxa yaratilmadi. Server loglarini tekshiring.",
 }

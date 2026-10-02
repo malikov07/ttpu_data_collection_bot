@@ -418,9 +418,10 @@ TEXTS: dict[str, str] = {
     "cmd.admin": "Admin panel",
     "cmd.backup": "Backup now",
     "backup.started": "⏳ Making a backup…",
-    "backup.caption": "🗄 <b>Backup</b> · {name}\n👥 Students: {students} · 🎓 Groups: {groups} · {size}",
+    "backup.caption": "🗄 <b>Backup</b> · {name}\n👥 Students: {students} · 🎓 Groups: {groups} · 📎 Files: {files} · {size}",
     "backup.encrypted": "🔐 Encrypted. Open it with 7-Zip, WinRAR or Keka using the backup password (BACKUP_PASSWORD on the server).",
     "backup.not_encrypted": "⚠️ Not encrypted: set BACKUP_PASSWORD on the server. Keep this file private: it holds personal data.",
-    "backup.too_big": "It is bigger than Telegram allows (50 MB), so it is kept only on the server.",
+    "backup.parts": "📦 Split into {count} parts (Telegram allows up to 50 MB per file). Save all parts in one folder and open {first} with 7-Zip or Keka.",
+    "backup.missing": "⚠️ {count} files could not be downloaded from Telegram: their names are in {file} in the archive.",
     "backup.failed": "❌ The backup failed. Check the server logs.",
 }

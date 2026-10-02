@@ -76,6 +76,11 @@ class Settings(BaseSettings):
         return None if v == "" else v
 
     @property
+    def telegram_files_dir(self) -> Path:
+        """Copies of the files students sent through the bot, kept for backups."""
+        return self.uploads_dir.parent / "telegram-files"
+
+    @property
     def web_secure(self) -> bool:
         return self.web_base_url.startswith("https://")
 

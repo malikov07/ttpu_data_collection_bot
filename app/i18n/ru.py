@@ -415,9 +415,10 @@ TEXTS: dict[str, str] = {
     "cmd.admin": "Панель управления",
     "cmd.backup": "Резервная копия сейчас",
     "backup.started": "⏳ Создаю резервную копию…",
-    "backup.caption": "🗄 <b>Резервная копия</b> · {name}\n👥 Студентов: {students} · 🎓 Групп: {groups} · {size}",
+    "backup.caption": "🗄 <b>Резервная копия</b> · {name}\n👥 Студентов: {students} · 🎓 Групп: {groups} · 📎 Файлов: {files} · {size}",
     "backup.encrypted": "🔐 Зашифрована. Откройте её в 7-Zip, WinRAR или Keka паролем резервных копий (BACKUP_PASSWORD на сервере).",
     "backup.not_encrypted": "⚠️ Не зашифрована: задайте BACKUP_PASSWORD на сервере. Не пересылайте файл: в нём персональные данные.",
-    "backup.too_big": "Файл больше лимита Telegram (50 МБ), поэтому он хранится только на сервере.",
+    "backup.parts": "📦 Разделена на {count} частей (Telegram принимает файлы до 50 МБ). Сохраните все части в одну папку и откройте {first} в 7-Zip или Keka.",
+    "backup.missing": "⚠️ {count} файлов не удалось скачать из Telegram: их список в {file} внутри архива.",
     "backup.failed": "❌ Не удалось создать резервную копию. Проверьте логи сервера.",
 }

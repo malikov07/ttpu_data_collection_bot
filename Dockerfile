@@ -33,7 +33,7 @@ COPY alembic.ini ./
 COPY --from=web /web/dist ./web/dist
 
 RUN useradd --create-home --uid 1000 bot \
-    && mkdir -p /app/data/uploads /app/backups \
+    && mkdir -p /app/data/uploads /app/data/telegram-files /app/backups \
     && chown -R bot:bot /app
 USER bot
 

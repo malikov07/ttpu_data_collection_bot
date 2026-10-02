@@ -17,6 +17,8 @@ services:
       BACKUP_DIR: /app/backups
     volumes:
       - uploads:/app/data/uploads
+      # Copies of the files students sent through the bot, for backups
+      - telegram_files:/app/data/telegram-files
       # Daily backups, visible on the server in ./backups (owned by uid 1000)
       - ./backups:/app/backups
     depends_on:
@@ -59,5 +61,6 @@ services:
 volumes:
   pgdata:
   uploads:
+  telegram_files:
   caddy_data:
   caddy_config:

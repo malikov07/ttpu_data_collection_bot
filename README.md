@@ -109,15 +109,20 @@ Database migrations run automatically on start. Run only **one** instance per bo
 
 Every day at `BACKUP_TIME` (03:00 Tashkent time by default) the bot:
 
-1. dumps the database (`database.sql`) and the files staff uploaded on the website (`uploads/`) into one zip, **encrypted with `BACKUP_PASSWORD`** (AES-256);
+1. puts everything into one zip, **encrypted with `BACKUP_PASSWORD`** (AES-256):
+   - `database.sql` — the whole database;
+   - `students.xlsx` — the students table;
+   - `files/<group>/<student> [id]/` — each student's passport, photo, CV and certificates (whether sent through the bot or uploaded on the website);
+   - `uploads/` — website uploads as stored, for restoring;
+   - `missing-files.txt` — only if some files could not be downloaded from Telegram;
 2. saves it on the server in `/opt/ttpu/backups/` and deletes backups older than `BACKUP_KEEP_DAYS` (30);
-3. sends it to every admin in Telegram (`ADMIN_IDS` and admin accounts connected with `/login`).
+3. sends it to every admin in Telegram (`ADMIN_IDS` and admin accounts connected with `/login`). Telegram takes files up to 50 MB, so a bigger backup is sent in parts (`….zip.001`, `….zip.002`, …): save them in one folder and open the `.001` file.
 
 Admins can make one at any time with **/backup** in the bot. If a backup fails, admins get a message.
 
 Open a backup with **7-Zip** (Windows), **Keka** (macOS) or `7z x file.zip` (Linux) and the backup password. Windows' built-in zip can't open AES-encrypted archives.
 
-Students' photos, passports and CVs sent through the bot stay on Telegram's servers; the database keeps their file ids, which work with this bot's token. Keep the token.
+Files students send through the bot are stored by Telegram. For backups the bot downloads each one once and keeps a copy on the server (the `telegram_files` Docker volume), so later backups only download new files. Each backup holds every file, so check the disk space: about `BACKUP_KEEP_DAYS` × the backup size.
 
 **Restore** (replaces the current database):
 
