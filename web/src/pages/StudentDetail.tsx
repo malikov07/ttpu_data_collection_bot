@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Award, Eye, FileImage, FileText, History, IdCard, ImageIcon, Pencil, Send, Trash2, Upload, UserRound } from "lucide-react";
+import { ArrowLeft, Award, Eye, FileImage, FileText, History, House, IdCard, ImageIcon, MapPin, Pencil, ScrollText, Send, Stethoscope, Trash2, Upload, UserRound } from "lucide-react";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { CertificateItem } from "../components/Certificates";
@@ -11,7 +11,7 @@ import { useI18n, type MessageKey } from "../i18n";
 import { api, ApiError } from "../lib/api";
 import { errorMessage } from "../lib/auth";
 import { actorLabel, formatDate, formatDateTime, formatPhone } from "../lib/format";
-import type { DocKind, Group, StudentDetail } from "../lib/types";
+import { ALL_DOCS, type DocKind, type Group, type StudentDetail } from "../lib/types";
 
 function InfoRow({ label, children, stacked }: { label: string; children: ReactNode; stacked?: boolean }) {
   if (stacked) {
@@ -169,10 +169,16 @@ function IdentityForm({ student, onDone }: { student: StudentDetail; onDone: () 
 
 // ------------------------------------------------------------------ files
 
+const PDF_OR_IMAGE = "application/pdf,image/jpeg,image/png,image/webp";
+
 const DOC_META: Record<DocKind, { title: MessageKey; hint: MessageKey; icon: ReactNode; accept: string }> = {
   passport: { title: "student.passport", hint: "student.upload_hint_passport", icon: <IdCard className="size-5" />, accept: "image/jpeg,image/png,image/webp" },
   photo: { title: "student.photo", hint: "student.upload_hint_photo", icon: <ImageIcon className="size-5" />, accept: "image/jpeg,image/png,image/webp" },
   cv: { title: "student.cv", hint: "student.upload_hint_cv", icon: <FileText className="size-5" />, accept: "application/pdf,image/jpeg,image/png,image/webp,.doc,.docx,.odt" },
+  address: { title: "student.address", hint: "student.upload_hint_files", icon: <House className="size-5" />, accept: PDF_OR_IMAGE },
+  temp_address: { title: "student.temp_address", hint: "student.upload_hint_files", icon: <MapPin className="size-5" />, accept: PDF_OR_IMAGE },
+  school_cert: { title: "student.school_cert", hint: "student.upload_hint_files", icon: <ScrollText className="size-5" />, accept: PDF_OR_IMAGE },
+  medical: { title: "student.medical", hint: "student.upload_hint_files", icon: <Stethoscope className="size-5" />, accept: PDF_OR_IMAGE },
 };
 
 function DocumentBlock({ student, kind }: { student: StudentDetail; kind: DocKind }) {
@@ -440,9 +446,9 @@ export function StudentDetailPage() {
           <Card>
             <CardHeader title={t("student.documents")} icon={<FileText className="size-[18px]" />} />
             <div className="divide-y divide-slate-100">
-              <DocumentBlock student={student} kind="passport" />
-              <DocumentBlock student={student} kind="photo" />
-              <DocumentBlock student={student} kind="cv" />
+              {ALL_DOCS.map((kind) => (
+                <DocumentBlock key={kind} student={student} kind={kind} />
+              ))}
             </div>
           </Card>
 

@@ -38,18 +38,13 @@ def document_line(_: Translator, doc_type: str | None, number: str | None, expir
     return f"{kind} <code>{escape(number)}</code> · {fmt_date(expiry)}".strip()
 
 
-def docs_line(_: Translator, *, passport: bool, photo: bool, cv: bool) -> str:
-    mark = lambda ok: _("doc.ok") if ok else _("doc.missing")  # noqa: E731
-    return _("docs.line", passport=mark(passport), photo=mark(photo), cv=mark(cv))
+def docs_line(_: Translator, present: set[DocumentKind]) -> str:
+    """✅ or — for every document kind."""
+    return _("docs.line", **{k.value: _("doc.ok") if k in present else _("doc.missing") for k in DocumentKind})
 
 
 def student_docs_line(_: Translator, s: Student) -> str:
-    line = docs_line(
-        _,
-        passport=s.document(DocumentKind.PASSPORT) is not None,
-        photo=s.document(DocumentKind.PHOTO) is not None,
-        cv=s.document(DocumentKind.CV) is not None,
-    )
+    line = docs_line(_, {d.kind for d in s.documents})
     if s.certificates:
         pending = sum(c.status == CertStatus.PENDING for c in s.certificates)
         line += "\n" + _("cert.summary", n=len(s.certificates))
@@ -134,11 +129,9 @@ def render_review(_: Translator, data: dict) -> str:
         document=document_line(_, doc["doc_type"], doc["doc_number"], doc["doc_expiry"]),
         phone=format_phone(data["phone"]),
         group=escape(data.get("group_name") or "—"),
-        docs=docs_line(
-            _, passport=bool(data.get("passport_files")), photo=bool(data.get("photo_files")), cv=bool(data.get("cv_files"))
-        )
+        docs=docs_line(_, {k for k in DocumentKind if data.get(f"{k.value}_files")})
         + "\n🏆 "
-        + (", ".join(escape(certs.describe(_.lang, c["type"], c["result"])) for c in data.get("reg_certs") or []) or _("reg.no_certs")),
+        + (", ".join(escape(certs.describe(_.lang, c["type"], c.get("result"))) for c in data.get("reg_certs") or []) or _("reg.no_certs")),
     )
 
 

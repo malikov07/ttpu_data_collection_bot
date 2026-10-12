@@ -44,6 +44,14 @@ class DocumentKind(StrEnum):
     PASSPORT = "passport"  # passport main page, or ID card back (+ front)
     PHOTO = "photo"  # 3x4 portrait
     CV = "cv"
+    ADDRESS = "address"  # permanent address (propiska) certificate from my.gov.uz
+    TEMP_ADDRESS = "temp_address"  # temporary registration, optional
+    SCHOOL_CERT = "school_cert"  # school leaving certificate (shahodatnoma)
+    MEDICAL = "medical"  # medical certificate, form 086/u, optional
+
+
+OPTIONAL_DOCUMENTS = frozenset({DocumentKind.TEMP_ADDRESS, DocumentKind.MEDICAL})
+REQUIRED_DOCUMENTS = tuple(k for k in DocumentKind if k not in OPTIONAL_DOCUMENTS)
 
 
 class DocType(StrEnum):
@@ -167,8 +175,9 @@ class Document(Base):
 class Certificate(Base):
     """A certificate or award a student sent (IELTS, SAT, olympiad…), reviewed by staff.
 
-    ``result`` is the score or level for tests ("7.5", "1450", "B2") and a short
-    description for the others ("Mathematics A+"). ``files`` as in Document.
+    ``result`` is empty: students only send the file. Certificates sent before
+    that keep the score or description they typed ("7.5", "Mathematics A+").
+    ``files`` as in Document.
     """
 
     __tablename__ = "certificates"

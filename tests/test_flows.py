@@ -36,6 +36,14 @@ async def start_registration(h, uid, lang="en"):
     return u
 
 
+async def send_documents(h, u):
+    """Permanent address and school certificate; the optional temporary address and form 086 skipped."""
+    await h.document(u, "address.pdf", "application/pdf")
+    await h.click(u, "reg:skip")
+    await h.document(u, "school.pdf", "application/pdf")
+    await h.click(u, "reg:skip")
+
+
 async def register(h, uid=100, group="SE-24-01", lang="en", **passport):
     h.vision.documents[f"pass-{uid}"] = passport_result(**passport)
     u = await start_registration(h, uid, lang)
@@ -45,6 +53,7 @@ async def register(h, uid=100, group="SE-24-01", lang="en", **passport):
     await h.text(u, group)
     await h.photo(u, f"face-{uid}", size=(600, 800))
     await h.document(u, f"cv{uid}.pdf", "application/pdf")
+    await send_documents(h, u)
     await h.click(u, "reg:certs_done")  # no certificates
     await h.click(u, "reg:submit")
     return u
@@ -59,7 +68,7 @@ async def test_passport_registration(h):
     await setup_groups(h)
     h.vision.documents["pass-100"] = passport_result()
     u = await start_registration(h, 100)
-    assert "Document" in h.tg.texts(100)[-1] and "1/7" in h.tg.texts(100)[-1]
+    assert "Document" in h.tg.texts(100)[-1] and "1/11" in h.tg.texts(100)[-1]
 
     await h.photo(u, "pass-100")
     check = h.tg.texts(100)[-1]
@@ -70,6 +79,18 @@ async def test_passport_registration(h):
     await h.text(u, "se-24-01")
     await h.photo(u, "face-100", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    assert "Permanent address" in h.tg.texts(100)[-1] and "my.gov.uz" in h.tg.texts(100)[-1]
+    assert ("Skip ›", "reg:skip") not in h.buttons()  # required
+    await h.document(u, "address.pdf", "application/pdf")
+    assert "Temporary address" in h.tg.texts(100)[-1] and ("Skip ›", "reg:skip") in h.buttons()
+    await h.photo(u, "temp-1")
+    await h.photo(u, "temp-2")
+    await h.click(u, "reg:done")
+    assert "School certificate" in h.tg.texts(100)[-1]
+    await h.photo(u, "school-1")
+    await h.click(u, "reg:done")
+    assert "form 086" in h.tg.texts(100)[-1]
+    await h.document(u, "086.pdf", "application/pdf")
     await h.click(u, "reg:certs_done")  # no certificates
     review = h.tg.last(methods.SendPhoto)  # review card shows the 3x4 photo
     assert review.photo == "face-100" and "Aliyev Vali Karimovich" in review.caption
@@ -84,6 +105,8 @@ async def test_passport_registration(h):
     assert s.pinfl == "32103051234567" and s.nationality == "UZB"
     assert s.phone == "+998901234567" and s.group.name == "SE-24-01"
     assert {d.kind for d in s.documents} == set(DocumentKind)
+    assert [f["file_id"] for f in s.document(DocumentKind.TEMP_ADDRESS).files] == ["temp-1", "temp-2"]
+    assert s.document(DocumentKind.MEDICAL).files[0]["name"] == "086.pdf"
     # Old screens are deleted as the student moves on: the chat stays short.
     assert sum(isinstance(r, methods.DeleteMessage) for r in h.tg.requests) >= 5
 
@@ -109,6 +132,7 @@ async def test_id_card_needs_front_and_patronymic(h):
     await h.text(u, "SE-24-02")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    await send_documents(h, u)
     await h.click(u, "reg:certs_done")  # no certificates
     await h.click(u, "reg:submit")
     s = await student(h, 200)
@@ -147,6 +171,7 @@ async def test_student_fixes_misread_fields_one_by_one(h):
     await h.text(u, "SE-24-01")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    await send_documents(h, u)
     await h.click(u, "reg:certs_done")  # no certificates
     # The review has the same per-field buttons.
     await h.click(u, "reg:edit")
@@ -227,6 +252,7 @@ async def test_submitted_data_is_locked_for_the_student(h):
     await h.text(u, "SE-24-01")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    await send_documents(h, u)
     await h.click(u, "reg:certs_done")  # no certificates
     assert "won't be able to change" in h.tg.last(methods.SendPhoto).caption  # warned before submitting
     await h.click(u, "reg:submit")
@@ -379,3 +405,125 @@ async def test_admin_cannot_delete_last_admin(h):
     boss = await login_bot(h, 950, "boss")
     await h.click(boss, AdminCb(action="adel", id=account_id).pack())
     assert "own account" in h.tg.last(methods.AnswerCallbackQuery).text
+
+
+async def test_foreign_student_registers(h):
+    """A Kazakh passport: no PINFL, no patronymic on it, a foreign phone number."""
+    await setup_groups(h)
+    h.vision.documents["kz"] = passport_result(
+        surname="NURLANOVA", given="AIGERIM", number="N12345678", nationality="KAZ", issuing="KAZ",
+        personal="", sex="F", patronymic=None,
+    )
+    h.vision.documents["visa"] = DocumentResult("visa")
+    u = await start_registration(h, 160)
+    await h.photo(u, "visa")
+    assert "visa" in h.tg.texts(160)[-1]
+    await h.photo(u, "kz")
+    assert "patronymic" in h.tg.texts(160)[-1]
+    await h.click(u, h.button("I don't have a patronymic"))
+    check = h.tg.texts(160)[-1]
+    assert "Nurlanova" in check and "Is everything correct?" in check
+    await h.click(u, "reg:correct")
+    await h.text(u, "77011234567")
+    assert "country code" in h.tg.texts(160)[-1]
+    await h.text(u, "+7 701 123 45 67")
+    await h.text(u, "SE-24-01")
+    await h.photo(u, "face", size=(600, 800))
+    await h.document(u, "cv.pdf", "application/pdf")
+    await send_documents(h, u)
+    await h.click(u, "reg:certs_done")
+    await h.click(u, "reg:submit")
+    s = await student(h, 160)
+    assert (s.last_name, s.first_name, s.middle_name) == ("Nurlanova", "Aigerim", None)
+    assert s.nationality == "KAZ" and s.pinfl is None and s.phone == "+77011234567"
+
+
+async def test_uzbek_documents_still_need_the_patronymic(h):
+    await setup_groups(h)
+    h.vision.documents["p"] = passport_result(patronymic=None)
+    u = await start_registration(h, 170)
+    await h.photo(u, "p")
+    assert "patronymic" in h.tg.texts(170)[-1]
+    assert not any("don't have" in text for text, _ in h.buttons())
+    await h.click(u, "reg:no_middle")  # an old or forged button does nothing
+    assert "patronymic" in h.tg.texts(170)[-1]
+
+
+async def test_document_steps(h):
+    """Required documents can't be skipped; optional ones can, and the review can drop them again."""
+    await setup_groups(h)
+    h.vision.documents["p"] = passport_result()
+    u = await start_registration(h, 180)
+    await h.photo(u, "p")
+    await h.click(u, "reg:correct")
+    await h.contact(u, "998901234567")
+    await h.text(u, "SE-24-01")
+    await h.photo(u, "face", size=(600, 800))
+    await h.document(u, "cv.pdf", "application/pdf")
+    await h.click(u, "reg:skip")  # an old or forged button: the address is required
+    assert "Permanent address" in h.tg.texts(180)[-1]
+    await h.document(u, "address.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    assert "PDF or a photo" in h.tg.texts(180)[-1]
+    await h.text(u, "hello")
+    assert "send a file or a photo" in h.tg.texts(180)[-1]
+    await h.click(u, "reg:done")
+    assert "at least one page" in h.tg.last(methods.AnswerCallbackQuery).text
+    await h.photo(u, "address")
+    await h.click(u, "reg:done")
+    await h.document(u, "temp.pdf", "application/pdf")
+    await h.document(u, "school.pdf", "application/pdf")
+    await h.click(u, "reg:skip")
+    await h.click(u, "reg:certs_done")
+    review = h.tg.last(methods.SendPhoto).caption
+    assert "Temporary ✅" in review and "Form 086 —" in review
+
+    # Changed their mind about the temporary address: «Skip» from the review removes it.
+    await h.click(u, "reg:edit")
+    await h.click(u, h.button("Temporary address"))
+    await h.click(u, "reg:skip")
+    assert "Temporary —" in h.tg.last(methods.SendPhoto).caption
+    await h.click(u, "reg:submit")
+    s = await student(h, 180)
+    assert {d.kind for d in s.documents} == set(DocumentKind) - {DocumentKind.TEMP_ADDRESS, DocumentKind.MEDICAL}
+    assert s.document(DocumentKind.ADDRESS).files[0]["file_id"] == "address"
+
+
+async def test_registered_student_sends_missing_documents(h):
+    """Students who registered before the new documents were added send them from their profile."""
+    from app.callbacks import DocCb
+
+    await setup_groups(h)
+    u = await register(h, uid=100)
+    async with h.sessions() as db:  # registered before: no address, no school certificate
+        s = await repo.get_student_by_tg(db, 100)
+        for d in [d for d in s.documents if d.kind in (DocumentKind.ADDRESS, DocumentKind.SCHOOL_CERT)]:
+            s.documents.remove(d)
+        await db.commit()
+
+    await h.text(u, "/start")
+    assert "documents are missing" in h.tg.texts(100)[-1]
+    await h.text(u, "👤 My profile")
+    assert "Tap one below" in h.tg.texts(100)[-1]
+    assert [text for text, _ in h.buttons()] == ["🏠 Permanent address", "🏘 Temporary address", "📜 School certificate", "🩺 Form 086"]
+
+    await h.click(u, DocCb(action="add", kind="address").pack())
+    assert "my.gov.uz" in h.tg.texts(100)[-1]
+    await h.photo(u, "addr-1")
+    await h.photo(u, "addr-2")
+    await h.click(u, "reg:done")
+    assert "Received: <b>🏠 Permanent address</b>" in h.tg.texts(100)[-1]
+    assert "🏠 Permanent address" not in [text for text, _ in h.buttons()]
+    await h.click(u, DocCb(action="add", kind="address").pack())  # already sent: locked
+    assert "already been sent" in h.tg.last(methods.AnswerCallbackQuery).text
+    await h.click(u, DocCb(action="add", kind="passport").pack())  # not something they can add
+    await h.click(u, DocCb(action="add", kind="school_cert").pack())
+    await h.document(u, "school.pdf", "application/pdf")
+
+    s = await student(h, 100)
+    assert [f["file_id"] for f in s.document(DocumentKind.ADDRESS).files] == ["addr-1", "addr-2"]
+    assert s.document(DocumentKind.SCHOOL_CERT).files[0]["name"] == "school.pdf"
+    await h.text(u, "/start")
+    assert "missing" not in h.tg.texts(100)[-1]  # only optional ones are left
+    async with h.sessions() as db:
+        actions = [a.action for a in (await db.scalars(select(AuditLog).where(AuditLog.action == "document.add"))).all()]
+    assert len(actions) == 2

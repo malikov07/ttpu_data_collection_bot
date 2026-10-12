@@ -2,7 +2,7 @@
 
 Student data collection for **Turin Polytechnic University in Tashkent**:
 
-- **Telegram bot:** students photograph their passport or ID card. The bot reads their data from it, then collects phone, group, a 3×4 photo and a CV.
+- **Telegram bot:** students photograph their passport or ID card. The bot reads their data from it, then collects phone, group, a 3×4 photo, a CV and the other documents the university needs.
 - **Staff website:** admins, tutors and group leaders sign in with a **login and password** to view, filter, edit and export students.
 - **Staff in the bot:** the same staff can browse, search, edit and export students from Telegram after `/login`.
 
@@ -23,10 +23,15 @@ Everything runs as **one process** on one server with **PostgreSQL** (SQLite for
 1. **Document.** The student sends a photo of the passport's main page, or of the **back** of the ID card. The bot reads the machine-readable zone (the lines with `<<<`): surname, name, date of birth, gender, document number, expiry date, PINFL and nationality. For an ID card, it then asks for the front side.
 2. **Check.** The bot shows what it read and suggests the patronymic from the printed text (it isn't in the machine-readable lines), or asks for it. The student confirms.
 3. **Phone** (share-contact button), **group**, **3×4 photo**, **CV** (PDF, Word, or photos of pages).
-4. **Certificates** (optional): IELTS, SAT, CEFR, olympiads… each as a PDF or photos, or «I have none». See below.
-5. **Review card** with the 3×4 photo, then **Submit**. The group's leaders get a Telegram notification.
+4. **Documents**, each as a PDF or photos of its pages:
+   - **permanent address** certificate (doimiy yashash manzili, from my.gov.uz), required;
+   - **temporary address** (vaqtinchalik propiska), optional: «Skip»;
+   - **school leaving certificate** (shahodatnoma), required;
+   - **medical form 086/u**, optional: «Skip».
+5. **Certificates** (optional): IELTS, SAT, CEFR, olympiads… each as a PDF or photos, or «I have none». See below.
+6. **Review card** with the 3×4 photo, then **Submit**. The group's leaders get a Telegram notification.
 
-Before submitting, the student can fix any field separately: surname, name, patronymic and gender (in case glare garbled them), phone, group, photo, CV, certificates, or a new document photo. Values protected by check digits (document number, expiry, PINFL, date of birth) can only change with a new photo. Anything the student typed instead of what was read is shown in the activity log.
+Before submitting, the student can fix any field separately: surname, name, patronymic and gender (in case glare garbled them), phone, group, photo, CV, each document (skipping an optional one again removes it), certificates, or a new document photo. Values protected by check digits (document number, expiry, PINFL, date of birth) can only change with a new photo. Anything the student typed instead of what was read is shown in the activity log.
 
 **After submitting, the data is locked for the student.** Only staff can correct it (website or bot).
 
@@ -38,13 +43,17 @@ The bot asks for a new photo, with the reason, when:
 
 Every value protected by the document's check digits must match, so misread data isn't accepted silently.
 
+Small but sharp images, such as an e-ID downloaded from my.gov.uz, are enlarged before reading. **Foreign documents** work too: any ICAO passport or ID card (TD1/TD2/TD3). The PINFL is taken only from Uzbek documents, a student whose document has no patronymic can say so, and a photo of a visa instead of the passport page is refused with an explanation.
+
+**Students who registered earlier** than a document was added to the form are reminded on /start; **👤 My profile** has a button for each document they are missing. Documents they already sent stay locked (staff can replace them on the website).
+
 Each step replaces the previous screen, so the chat stays short. Error messages replace each other instead of piling up.
 
 ## Certificates and awards
 
-Students add certificates in the registration form (step 7, after the CV), and later with **🏆 My certificates** in the bot: IELTS, TOEFL iBT, SAT, Duolingo, CEFR, the national certificate (Milliy sertifikat), olympiads and other awards.
+Students add certificates in the registration form (step 11, after the documents), and later with **🏆 My certificates** in the bot: IELTS, TOEFL iBT, SAT, Duolingo, CEFR, the national certificate (Milliy sertifikat), olympiads and other awards.
 
-1. The student chooses the type and enters the result. Scores are checked (IELTS 0–9 in steps of 0.5, TOEFL 0–120, SAT 400–1600, Duolingo 10–160, CEFR A1–C2). The national certificate, olympiads and "other" take a short description, e.g. *Mathematics A+*.
+1. The student chooses the type. No score is asked, to keep it quick: staff see it on the certificate itself. (Certificates sent before this change keep the score the student typed.)
 2. They send the certificate as a PDF or photos of its pages.
 3. It is saved when the form is submitted (or right away from «My certificates») and waits for review. The group's leaders get a Telegram message (if **Notify group leaders** is on).
 4. Staff **accept** or **reject** it (optionally with a reason) on the website (**Certificates**, or the student's page) or in the bot (**🏆 Certificates**, `/certificates`, or the student card). The student gets a message with the decision.
@@ -112,7 +121,7 @@ Every day at `BACKUP_TIME` (03:00 Tashkent time by default) the bot:
 1. puts everything into one zip, **encrypted with `BACKUP_PASSWORD`** (AES-256):
    - `database.sql` — the whole database;
    - `students.xlsx` — the students table;
-   - `files/<group>/<student> [id]/` — each student's passport, photo, CV and certificates (whether sent through the bot or uploaded on the website);
+   - `files/<group>/<student> [id]/` — each student's passport, photo, CV, other documents and certificates (whether sent through the bot or uploaded on the website);
    - `uploads/` — website uploads as stored, for restoring;
    - `missing-files.txt` — only if some files could not be downloaded from Telegram;
 2. saves it on the server in `/opt/ttpu/backups/` and deletes backups older than `BACKUP_KEEP_DAYS` (30);
@@ -203,7 +212,7 @@ After changing `app/db/models.py`, create a migration with `.venv/bin/alembic re
 ## Tests
 
 ```bash
-.venv/bin/python -m pytest          # 134 tests, including the real OCR/face models on synthetic images
+.venv/bin/python -m pytest          # 126 tests, including the real OCR/face models on synthetic images
 (cd web && npm run typecheck)       # frontend types and translation completeness
 ```
 

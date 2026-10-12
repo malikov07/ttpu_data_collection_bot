@@ -9,7 +9,7 @@ from app.callbacks import AdminCb, StaffCb
 from app.db import repo
 from app.db.models import StaffRole
 from tests.conftest import passport_result
-from tests.test_flows import ADMIN, setup_groups, start_registration, student
+from tests.test_flows import ADMIN, send_documents, setup_groups, start_registration, student
 
 GROUPS = "IT1-24, IT1-26, IT2-26, IT1-25, SE1-26, SE2-25, SE-23, CYB1-26, CYB2-26, MSc_MBA-26, MSc_TE-25, AD-23, AD1-26, BM1-26, BM2-26"
 
@@ -105,6 +105,7 @@ async def test_tutor_browses_by_program_and_moves_a_student(h):
     await h.text(u, "IT1-25")
     await h.photo(u, "face", size=(600, 800))
     await h.document(u, "cv.pdf", "application/pdf")
+    await send_documents(h, u)
     await h.click(u, "reg:certs_done")  # no certificates
     await h.click(u, "reg:submit")
 

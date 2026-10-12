@@ -3,7 +3,7 @@ import { CheckCircle2, CircleDashed } from "lucide-react";
 import { useState } from "react";
 import { useI18n } from "../i18n";
 import { initials } from "../lib/format";
-import type { DocKind, Student } from "../lib/types";
+import { REQUIRED_DOCS, type DocKind, type Student } from "../lib/types";
 
 /** The student's 3x4 photo (served by our API), or initials as a fallback. */
 export function StudentAvatar({ student, size = "md" }: { student: Pick<Student, "id" | "full_name" | "documents" | "updated_at">; size?: "sm" | "md" | "xl" }) {
@@ -47,7 +47,7 @@ export function DocPill({ kind, present }: { kind: DocKind; present: boolean }) 
 export function DocPills({ student }: { student: Student }) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      {(["passport", "photo", "cv"] as const).map((k) => (
+      {REQUIRED_DOCS.map((k) => (
         <DocPill key={k} kind={k} present={student.documents[k].present} />
       ))}
     </div>

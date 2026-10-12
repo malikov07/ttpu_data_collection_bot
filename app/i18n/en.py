@@ -42,10 +42,13 @@ TEXTS: dict[str, str] = {
     "welcome.new": (
         "🎓 <b>Turin Polytechnic University in Tashkent</b>\n"
         "Student data collection\n\n"
-        "It takes about <b>3 minutes</b>. Have these ready:\n"
+        "It takes about <b>5 minutes</b>. Have these ready:\n"
         "🪪 passport or ID card\n"
         "🖼 a 3×4 photo\n"
         "📄 your CV (PDF or Word)\n"
+        "🏠 permanent address certificate from my.gov.uz\n"
+        "📜 school leaving certificate (shahodatnoma)\n"
+        "🏘 temporary registration and 🩺 form 086, if you have them\n"
         "🏆 certificates (IELTS, SAT…), if you have any\n\n"
         "🔒 Your data is read <b>on the university's own server</b>. It is never sent to "
         "third-party or AI services, and only your group leader and tutors can see it "
@@ -54,6 +57,10 @@ TEXTS: dict[str, str] = {
     ),
     "btn.consent": "✅ Agree and start",
     "welcome.back": "👋 Welcome back, <b>{name}</b>!",
+    "mydocs.missing": "📎 <b>Some documents are missing.</b> Tap one below to send it.",
+    "mydocs.saved": "✅ Received: <b>{doc}</b>",
+    "mydocs.already_sent": "This document has already been sent. To change it, contact your tutor or group leader.",
+    "mydocs.reminder": "📎 Some of your documents are missing (permanent address, school certificate…). Open «👤 My profile» to send them.",
     "welcome.staff": "👋 Hello, <b>{name}</b>!\n{roles}",
     "role.admin": "🛡 Administrator",
     "role.tutor": "🎓 Tutor: all groups",
@@ -79,6 +86,10 @@ TEXTS: dict[str, str] = {
     "step.group": "🎓 Group",
     "step.photo": "🖼 3×4 photo",
     "step.cv": "📄 CV",
+    "step.address": "🏠 Permanent address",
+    "step.temp_address": "🏘 Temporary address",
+    "step.school_cert": "📜 School certificate",
+    "step.medical": "🩺 Medical form 086",
     "reg.document": (
         "Send a photo of your document:\n\n"
         "• <b>passport</b>: the main page with your photo\n"
@@ -119,6 +130,22 @@ TEXTS: dict[str, str] = {
     ),
     "reg.photo_tip": "💡 A scan or a clear photo of your printed 3×4 photo is fine.",
     "reg.cv": "Send your <b>CV</b> as a PDF or Word file.\n<i>Photos of pages also work (up to {max}); press «Done» after the last one.</i>",
+    "reg.address": (
+        "Send the <b>permanent address certificate</b> (propiska) from <b>my.gov.uz</b>: the PDF file, a screenshot or a photo.\n"
+        "<i>Several pages? Send the photos one after another (up to {max}) and press «Done».</i>"
+    ),
+    "reg.temp_address": (
+        "Do you have a <b>temporary registration</b> (vaqtinchalik propiska)? Send its certificate as a PDF or a photo.\n"
+        "<i>Several pages? Send the photos (up to {max}) and press «Done». No temporary registration? Press «Skip».</i>"
+    ),
+    "reg.school_cert": (
+        "Send your <b>school leaving certificate</b> (shahodatnoma): a PDF, or photos of all its pages.\n"
+        "<i>Send the photos one after another (up to {max}) and press «Done».</i>"
+    ),
+    "reg.medical": (
+        "Send your <b>medical certificate, form 086/u</b>: a PDF or a photo.\n"
+        "<i>Several pages? Send the photos (up to {max}) and press «Done». Don't have it yet? Press «Skip».</i>"
+    ),
     "reg.page_added": "📄 Page {n} received. Send the next one or press «Done».",
     "reg.max_pages": "That's the maximum of {max} pages. Press «Done».",
     "reg.checking": "⏳ Checking…",
@@ -141,9 +168,17 @@ TEXTS: dict[str, str] = {
     "field.group": "🎓 Group",
     "field.photo": "🖼 Photo",
     "field.cv": "📄 CV",
+    "field.address": "🏠 Permanent address",
+    "field.temp_address": "🏘 Temporary address",
+    "field.school_cert": "📜 School certificate",
+    "field.medical": "🩺 Form 086",
     "doc.ok": "✅",
     "doc.missing": "—",
-    "docs.line": "🪪 Document {passport}   🖼 Photo {photo}   📄 CV {cv}",
+    "docs.line": (
+        "🪪 Document {passport}   🖼 Photo {photo}   📄 CV {cv}\n"
+        "🏠 Permanent address {address}   🏘 Temporary {temp_address}\n"
+        "📜 School certificate {school_cert}   🩺 Form 086 {medical}"
+    ),
     "reg.done": (
         "🎉 <b>Done! Your data has been submitted.</b>\n\n"
         "If something is wrong, contact your tutor or group leader: they can correct it.\n\n"
@@ -162,6 +197,8 @@ TEXTS: dict[str, str] = {
     "doc_err.partial": "❌ Part of the document is cut off. Make sure the <b>whole page</b>, including the bottom lines, is in the photo.",
     "doc_err.unreadable": "❌ I couldn't read the document reliably (glare or shadow?). Please take a new photo.",
     "doc_err.expired": "❌ This document has <b>expired</b>. Please send a valid passport or ID card.",
+    "doc_err.visa": "❌ This is a <b>visa</b>. Please send the main page of your passport: the one with your photo.",
+    "btn.no_patronymic": "I don't have a patronymic",
     "doc_err.age": "❌ The date of birth in this document doesn't fit the allowed age. Please send your own document.",
     "doc_err.duplicate": "⛔️ This document is already registered from another Telegram account. Please contact your tutor.",
     "doc_err.front": "❌ This doesn't look like the front side of the ID card (I can't see your photo on it). Please try again.",
@@ -173,9 +210,10 @@ TEXTS: dict[str, str] = {
     "photo_err.many_faces": "❌ There is more than one face. Send a portrait of <b>only you</b>.",
     "photo_err.face_too_small": "❌ Your face is too small. The face should fill most of the 3×4 photo.",
     "file_err.type": "❌ This file type isn't accepted here.",
+    "file_err.pdf_or_photo": "❌ Please send it as a PDF or a photo.",
     "file_err.size": "❌ The file is too big (max 20 MB).",
     "file_err.expected": "❌ Please send a file or a photo.",
-    "err.phone": "❌ That doesn't look like a phone number. e.g. <code>+998901234567</code>",
+    "err.phone": "❌ That doesn't look like a phone number. e.g. <code>+998901234567</code>\nA foreign number: start with <b>+</b> and the country code, e.g. <code>+77011234567</code>.",
     "err.foreign_contact": "❌ Please share <b>your own</b> number with the button.",
     "err.name_part": "❌ Use letters only (2–64), e.g. <i>Karimov</i>, <i>Karim oʻgʻli</i>.",
     "err.group_not_found": "❌ No group «{query}». Choose from the list.",
@@ -230,21 +268,6 @@ TEXTS: dict[str, str] = {
     ),
     "cert.mine_tip": "Staff review every certificate. You'll get a message with the result.",
     "cert.pick_type": "🏆 <b>New certificate</b>\n\nWhich certificate is it?",
-    "cert.ask.ielts": "Send your <b>overall band score</b>.\n<i>e.g. 6.5</i>",
-    "cert.ask.toefl": "Send your <b>total score</b> (0–120).\n<i>e.g. 95</i>",
-    "cert.ask.sat": "Send your <b>total score</b> (400–1600).\n<i>e.g. 1350</i>",
-    "cert.ask.duolingo": "Send your <b>overall score</b> (10–160).\n<i>e.g. 120</i>",
-    "cert.ask.cefr": "Choose your <b>level</b>.",
-    "cert.ask.national": "Type the <b>subject and grade</b>.\n<i>e.g. Mathematics A+</i>",
-    "cert.ask.olympiad": "Type the <b>olympiad or award</b> and your place.\n<i>e.g. Regional math olympiad, 1st place</i>",
-    "cert.ask.other": "Type the <b>certificate name and result</b>.\n<i>e.g. Cambridge C1 Advanced, grade A</i>",
-    "cert.err.ielts": "❌ An IELTS score is 0–9 in steps of 0.5, e.g. <code>6.5</code>.",
-    "cert.err.toefl": "❌ A TOEFL iBT score is a whole number from 0 to 120, e.g. <code>95</code>.",
-    "cert.err.sat": "❌ A SAT score is 400–1600 in steps of 10, e.g. <code>1350</code>.",
-    "cert.err.duolingo": "❌ A Duolingo score is 10–160 in steps of 5, e.g. <code>120</code>.",
-    "cert.err.cefr": "❌ Choose the level with the buttons: A1, A2, B1, B2, C1 or C2.",
-    "cert.err.description": "❌ Please describe it briefly: 3–100 characters.",
-    "cert.err.type_text": "❌ Please type it as text.",
     "cert.err.file_type": "❌ Send the certificate as a PDF or a photo.",
     "cert.err.pdf_after_photos": "❌ Send either one PDF or photos. After the last photo, press «Done».",
     "cert.ask_files": (

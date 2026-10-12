@@ -1,8 +1,12 @@
 """Student registration.
 
 Steps: document (read on the server) → check the read data → phone → group →
-3x4 photo → CV → certificates (optional) → review. Each step is one screen; the previous screen is
-removed, so the chat stays short.
+3x4 photo → CV → permanent address → temporary address (optional) → school
+certificate → form 086 (optional) → certificates (optional) → review. Each step
+is one screen; the previous screen is removed, so the chat stays short.
+
+Registered students can later send documents they are missing (e.g. ones added
+to the form after they registered) from «My profile».
 """
 
 from __future__ import annotations
@@ -15,22 +19,23 @@ from html import escape
 from zoneinfo import ZoneInfo
 
 from aiogram import Bot, F, Router
+from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import keyboards as kb
-from app.callbacks import CertCb, EditFieldCb, GroupPickCb, RegCb
+from app.callbacks import CertCb, DocCb, EditFieldCb, GroupPickCb, RegCb
 from app.config import Settings
 from app.db import repo
-from app.db.models import CertType, DocType, DocumentKind, Gender, Group, User
+from app.db.models import OPTIONAL_DOCUMENTS, CertType, DocType, DocumentKind, Gender, Group, Student, User
 from app.db.repo import Access, StudentForm
 from app.handlers.common import show_main_menu
 from app.handlers.ui import delete_quietly, drop_screen, screen, step_screen
 from app.i18n import Translator, t, variants
 from app.services import certificates as certs
 from app.services import vision
-from app.services.documents import FileRejected, download, extract_file, is_image
+from app.services.documents import PAGED, FileRejected, download, extract_file, is_image
 from app.services.prefs import Prefs
 from app.services.validators import (
     ValidationError,
@@ -40,18 +45,22 @@ from app.services.validators import (
     normalize_phone,
     pretty_name,
 )
-from app.states import Registration
+from app.states import MyDocuments, Registration
 from app.views import render_check, render_profile, render_review
 
 log = logging.getLogger(__name__)
 router = Router(name="registration")
 
-ORDER = ("document", "phone", "group", "photo", "cv", "certs")
-STEP_NO = {"document": 1, "check": 2, "phone": 3, "group": 4, "photo": 5, "cv": 6, "certs": 7}
-# The certificates step is optional, but the student must pass it once.
-REQUIRED = {
-    "document": "doc", "phone": "phone", "group": "group_id", "photo": "photo_files", "cv": "cv_files", "certs": "certs_done",
+# Steps that take a document as a PDF or photos of its pages; each is named after its DocumentKind.
+FILE_STEPS = tuple(kind.value for kind in PAGED)
+ORDER = ("document", "phone", "group", "photo", *FILE_STEPS, "certs")
+STEP_NO = {"document": 1, "check": 2} | {step: n for n, step in enumerate(ORDER[1:], start=3)}
+OPTIONAL = {kind.value for kind in OPTIONAL_DOCUMENTS} | {"certs"}
+# The form key that is set once a step is done. Optional steps must still be passed once.
+REQUIRED = {"document": "doc", "phone": "phone", "group": "group_id", "photo": "photo_files"} | {
+    step: f"{step}_done" if step in OPTIONAL else f"{step}_files" for step in (*FILE_STEPS, "certs")
 }
+FILE_STATES = tuple(getattr(Registration, step) for step in FILE_STEPS)
 # Albums arrive as several simultaneous updates: handle one file per user at a time.
 _locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
@@ -97,17 +106,18 @@ async def ask(field: str, chat_id: int, state: FSMContext, session: AsyncSession
         await state.set_state(Registration.photo)
         body = step_screen(_, "step.photo", step, _("reg.photo"), _("reg.photo_tip"))
         await screen(bot, chat_id, state, body, kb.cancel_kb(_))
-    elif field == "cv":
-        await state.set_state(Registration.cv)
+    elif field in FILE_STEPS:
+        await state.set_state(getattr(Registration, field))
         await state.update_data(pages=[], pages_msg=None)
-        body = step_screen(_, "step.cv", step, _("reg.cv", max=prefs.max_document_pages))
-        await screen(bot, chat_id, state, body, kb.cancel_kb(_))
+        body = step_screen(_, f"step.{field}", step, _(f"reg.{field}", max=prefs.max_document_pages))
+        markup = kb.skip_kb(_, RegCb(action="skip").pack()) if field in OPTIONAL else kb.cancel_kb(_)
+        await screen(bot, chat_id, state, body, markup)
     elif field == "certs":
         await state.set_state(Registration.certs)
         items = (await state.get_data()).get("reg_certs") or []
         body = _("reg.certs")
         if items:
-            added = "\n".join(f"✅ {escape(certs.describe(_.lang, c['type'], c['result']))}" for c in items)
+            added = "\n".join(f"✅ {escape(certs.describe(_.lang, c['type'], c.get('result')))}" for c in items)
             body += "\n\n" + _("reg.certs_added", list=added)
         await screen(bot, chat_id, state, step_screen(_, "step.certs", step, body), kb.reg_certs_kb(_, items))
 
@@ -180,11 +190,15 @@ async def ask_name_part(chat_id: int, state: FSMContext, _: Translator, bot: Bot
     await clear_error(chat_id, state, bot)
     await state.set_state(Registration.name_part)
     await state.update_data(name_field=field, back_to=back_to)
-    current = current_value(await state.get_data(), field)
+    data = await state.get_data()
+    current = current_value(data, field)
     if current:
         body, markup = _("reg.type_field", field=_(f"sfield.{field}"), current=escape(current)), kb.back_kb(_)
     else:  # the patronymic wasn't readable on the document: it must be typed
         body, markup = _("reg.patronymic"), kb.cancel_kb(_)
+    # Many foreign documents have no patronymic at all; Uzbek ones always do.
+    if field == "middle_name" and (data.get("doc") or {}).get("issuing_state", "UZB") != "UZB":
+        markup = kb.no_patronymic_kb(_, back=bool(current) or data.get("no_patronymic") or back_to == "review")
     text = step_screen(_, "step.check", 2, body) if back_to == "check" else body
     await screen(bot, chat_id, state, text, markup)
 
@@ -237,12 +251,16 @@ async def on_profile(message: Message, session: AsyncSession, user: User, access
         await show_main_menu(message, session, user, access, _)
         return
     text = render_profile(_, student, ZoneInfo(settings.timezone))
+    missing = missing_documents(student)
+    markup = kb.add_documents_kb(_, missing) if missing else None
+    if missing:
+        text += "\n\n" + _("mydocs.missing")
     photo = student.document(DocumentKind.PHOTO)
     file = photo.files[0] if photo and photo.files else None
     if file and file["type"] == "photo":
-        await message.answer_photo(file["file_id"], caption=text)
+        await message.answer_photo(file["file_id"], caption=text, reply_markup=markup)
     else:
-        await message.answer(text)
+        await message.answer(text, reply_markup=markup)
 
 
 # ------------------------------------------------------------------ 1. document
@@ -275,7 +293,7 @@ async def on_document(
             await say_error(message, state, _("doc_err.age"), bot)
             return
         duplicate = await repo.find_duplicate_document(
-            session, pinfl=mrz.personal_number, doc_number=mrz.document_number, telegram_id=user.id
+            session, pinfl=mrz.pinfl, doc_number=mrz.document_number, telegram_id=user.id
         )
         if duplicate is not None:
             log.warning("Document %s already registered by another Telegram account", mrz.document_number)
@@ -283,6 +301,7 @@ async def on_document(
             return
 
         is_id = not mrz.is_passport
+        needs_front = mrz.needs_front  # TD2 cards have the photo on the MRZ side
         doc = {
             "last_name": pretty_name(mrz.last_name),
             "first_name": pretty_name(mrz.first_name),
@@ -291,17 +310,19 @@ async def on_document(
             "doc_type": (DocType.ID_CARD if is_id else DocType.PASSPORT).value,
             "doc_number": mrz.document_number,
             "doc_expiry": mrz.expiry_date.isoformat(),
-            "pinfl": mrz.personal_number,
+            "pinfl": mrz.pinfl,
             "nationality": mrz.nationality,
+            "issuing_state": mrz.issuing_state,
         }
         await state.update_data(
             doc=doc,
             read=as_read(doc, result.patronymic),
-            passport_files=[{**file, "side": "back" if is_id else "main"}],
+            passport_files=[{**file, "side": "back" if needs_front else "main"}],
             middle_name=result.patronymic,
+            no_patronymic=False,
         )
         await clear_error(message.chat.id, state, bot)
-        if is_id:
+        if needs_front:
             await state.set_state(Registration.id_front)
             await screen(bot, message.chat.id, state, step_screen(_, "step.document", 1, _("reg.id_front")), kb.cancel_kb(_))
             return
@@ -310,7 +331,7 @@ async def on_document(
 
 async def after_document(chat_id: int, state: FSMContext, _: Translator, bot: Bot) -> None:
     data = await state.get_data()
-    if not data.get("middle_name"):
+    if not data.get("middle_name") and not data.get("no_patronymic"):
         await ask_name_part(chat_id, state, _, bot, "middle_name", "check")
     else:
         await show_check(chat_id, state, _, bot)
@@ -336,6 +357,8 @@ async def on_id_front(message: Message, state: FSMContext, user: User, _: Transl
             return
         data = await state.get_data()
         files = [f for f in data.get("passport_files") or [] if f.get("side") != "front"]
+        if not vision.prints_patronymic(data["doc"].get("issuing_state", "UZB")):
+            patronymic = None
         middle_name = data.get("middle_name") or patronymic
         await state.update_data(
             passport_files=[*files, {**file, "side": "front"}],
@@ -364,10 +387,20 @@ async def on_name_part(message: Message, state: FSMContext, _: Translator, bot: 
     data = await state.get_data()
     field = data.get("name_field") or "middle_name"
     if field == "middle_name":
-        await state.update_data(middle_name=value)
+        await state.update_data(middle_name=value, no_patronymic=False)
     else:
         await state.update_data(doc={**data["doc"], field: value})
     await go_back(message.chat.id, state, _, bot)
+
+
+@router.callback_query(Registration.name_part, RegCb.filter(F.action == "no_middle"))
+async def on_no_patronymic(cb: CallbackQuery, state: FSMContext, _: Translator, bot: Bot) -> None:
+    await cb.answer()
+    data = await state.get_data()
+    if (data.get("doc") or {}).get("issuing_state", "UZB") == "UZB":
+        return
+    await state.update_data(middle_name=None, no_patronymic=True)
+    await go_back(cb.message.chat.id, state, _, bot)
 
 
 @router.message(Registration.name_part)
@@ -523,60 +556,93 @@ async def on_photo_other(message: Message, state: FSMContext, _: Translator, bot
     await say_error(message, state, _("photo_err.not_image"), bot)
 
 
-# ------------------------------------------------------------------ 6. CV
+# ------------------------------------------------------------------ 6–10. CV and other documents
 
 
-@router.message(Registration.cv, F.photo | F.document)
-async def on_cv(message: Message, state: FSMContext, session: AsyncSession, user: User, _: Translator, prefs: Prefs, bot: Bot) -> None:
+def file_step(state_name: str | None) -> str | None:
+    return next((step for step, st in zip(FILE_STEPS, FILE_STATES) if st.state == state_name), None)
+
+
+async def collect_page(message: Message, state: FSMContext, file: dict, _: Translator, prefs: Prefs, bot: Bot) -> list[dict] | None:
+    """One file of a document: a PDF or Word file is the whole document and is
+    returned; photos are its pages, collected until «Done» (None until then)."""
+    data = await state.get_data()
+    pages: list[dict] = data.get("pages") or []
+    if not is_image(file):
+        if pages:  # a file after photos: keep the photos, ignore the file
+            await say_error(message, state, _("file_err.type"), bot)
+            return None
+        await state.update_data(pages=[])
+        return [file]
+    if len(pages) >= prefs.max_document_pages:
+        await say_error(message, state, _("reg.max_pages", max=prefs.max_document_pages), bot)
+        return None
+    pages.append(file)
+    await state.update_data(pages=pages)
+    text = _("reg.page_added", n=len(pages))
+    if msg_id := data.get("pages_msg"):
+        try:
+            await bot.edit_message_text(text, chat_id=message.chat.id, message_id=msg_id, reply_markup=kb.pages_kb(_))
+            return None
+        except Exception:
+            pass
+    msg = await message.answer(text, reply_markup=kb.pages_kb(_))
+    await state.update_data(pages_msg=msg.message_id)
+    return None
+
+
+def file_error(e: FileRejected, kind: DocumentKind) -> str:
+    if e.code == "type" and kind != DocumentKind.CV:
+        return "file_err.pdf_or_photo"
+    return f"file_err.{e.code}"
+
+
+@router.message(StateFilter(*FILE_STATES), F.photo | F.document)
+async def on_file(message: Message, state: FSMContext, session: AsyncSession, user: User, _: Translator, prefs: Prefs, bot: Bot) -> None:
+    step = file_step(await state.get_state())
     try:
-        file = extract_file(message, DocumentKind.CV)
+        file = extract_file(message, DocumentKind(step))
     except FileRejected as e:
-        await say_error(message, state, _(f"file_err.{e.code}"), bot)
+        await say_error(message, state, _(file_error(e, DocumentKind(step))), bot)
         return
     async with _locks[user.id]:
-        if await state.get_state() != Registration.cv.state:
-            return
-        data = await state.get_data()
-        pages: list[dict] = data.get("pages") or []
-        if not is_image(file):
-            if pages:  # a file after photos: keep the photos, ignore the file
-                await say_error(message, state, _("file_err.type"), bot)
-                return
-            await state.update_data(cv_files=[file], pages=[])
-            await advance("cv", message.chat.id, state, session, _, prefs, bot)
-            return
-        if len(pages) >= prefs.max_document_pages:
-            await say_error(message, state, _("reg.max_pages", max=prefs.max_document_pages), bot)
-            return
-        pages.append(file)
-        await state.update_data(pages=pages)
-        text = _("reg.page_added", n=len(pages))
-        if msg_id := data.get("pages_msg"):
-            try:
-                await bot.edit_message_text(text, chat_id=message.chat.id, message_id=msg_id, reply_markup=kb.pages_kb(_))
-                return
-            except Exception:
-                pass
-        msg = await message.answer(text, reply_markup=kb.pages_kb(_))
-        await state.update_data(pages_msg=msg.message_id)
+        if file_step(await state.get_state()) != step:
+            return  # a late photo of an album; the first ones already moved on
+        files = await collect_page(message, state, file, _, prefs, bot)
+        if files:
+            await state.update_data({f"{step}_files": files, f"{step}_done": True})
+            await advance(step, message.chat.id, state, session, _, prefs, bot)
 
 
-@router.callback_query(Registration.cv, RegCb.filter(F.action == "done"))
-async def on_cv_done(cb: CallbackQuery, state: FSMContext, session: AsyncSession, user: User, _: Translator, prefs: Prefs, bot: Bot) -> None:
+@router.callback_query(StateFilter(*FILE_STATES), RegCb.filter(F.action == "done"))
+async def on_pages_done(cb: CallbackQuery, state: FSMContext, session: AsyncSession, user: User, _: Translator, prefs: Prefs, bot: Bot) -> None:
+    step = file_step(await state.get_state())
     async with _locks[user.id]:
-        data = await state.get_data()
-        pages = data.get("pages") or []
+        pages = (await state.get_data()).get("pages") or []
         if not pages:
             await cb.answer(_("err.no_pages"), show_alert=True)
             return
-        await state.update_data(cv_files=pages, pages=[], pages_msg=None)
+        await state.update_data({f"{step}_files": pages, f"{step}_done": True, "pages": [], "pages_msg": None})
     await cb.answer()
     await delete_quietly(bot, cb.message.chat.id, cb.message.message_id)
-    await advance("cv", cb.message.chat.id, state, session, _, prefs, bot)
+    await advance(step, cb.message.chat.id, state, session, _, prefs, bot)
 
 
-@router.message(Registration.cv)
-async def on_cv_other(message: Message, state: FSMContext, _: Translator, bot: Bot) -> None:
+@router.callback_query(StateFilter(*FILE_STATES), RegCb.filter(F.action == "skip"))
+async def on_file_skip(cb: CallbackQuery, state: FSMContext, session: AsyncSession, _: Translator, prefs: Prefs, bot: Bot) -> None:
+    """Optional documents: skipping one (also from the review) leaves it out."""
+    step = file_step(await state.get_state())
+    await cb.answer()
+    if step not in OPTIONAL:
+        return
+    data = await state.get_data()
+    await delete_quietly(bot, cb.message.chat.id, data.get("pages_msg"))
+    await state.update_data({f"{step}_files": None, f"{step}_done": True, "pages": [], "pages_msg": None})
+    await advance(step, cb.message.chat.id, state, session, _, prefs, bot)
+
+
+@router.message(StateFilter(*FILE_STATES))
+async def on_file_other(message: Message, state: FSMContext, _: Translator, bot: Bot) -> None:
     await say_error(message, state, _("file_err.expected"), bot)
 
 
@@ -660,11 +726,7 @@ async def on_submit(
         doc_expiry=date.fromisoformat(doc["doc_expiry"]) if doc.get("doc_expiry") else None,
         pinfl=doc.get("pinfl"),
         nationality=doc.get("nationality"),
-        documents={
-            DocumentKind.PASSPORT: data["passport_files"],
-            DocumentKind.PHOTO: data["photo_files"],
-            DocumentKind.CV: data["cv_files"],
-        },
+        documents={kind: data[f"{kind.value}_files"] for kind in DocumentKind if data.get(f"{kind.value}_files")},
     )
     result = await repo.save_student(session, user.id, form)
     await repo.audit(
@@ -673,7 +735,7 @@ async def on_submit(
         details=corrections(data),
     )
     for item in (data.get("reg_certs") or [])[: certs.MAX_PER_STUDENT]:
-        cert = await repo.add_certificate(session, result.student, CertType(item["type"]), item["result"], item["files"])
+        cert = await repo.add_certificate(session, result.student, CertType(item["type"]), item.get("result") or "", item["files"])
         await repo.audit(
             session, repo.tg_actor(user.id), "certificate.submit", entity="student", entity_id=result.student.id,
             summary=f"{certs.label('en', cert)} · {result.student.full_name}",
@@ -704,3 +766,88 @@ async def _notify_leaders(bot: Bot, session: AsyncSession, student_tg: int, grou
 @router.message(Registration.review)
 async def on_use_buttons(message: Message, state: FSMContext, _: Translator, bot: Bot) -> None:
     await say_error(message, state, _("err.use_buttons"), bot)
+
+
+# ------------------------------------------------------------------ registered students: missing documents
+
+
+def missing_documents(student: Student) -> list[DocumentKind]:
+    """Documents a registered student hasn't sent (e.g. added to the form after they registered).
+    Documents already sent stay locked: only staff can replace them."""
+    return [kind for kind in PAGED if student.document(kind) is None]
+
+
+@router.callback_query(DocCb.filter(F.action == "add"))
+async def on_add_document(
+    cb: CallbackQuery, callback_data: DocCb, state: FSMContext, session: AsyncSession, user: User, _: Translator, prefs: Prefs, bot: Bot
+) -> None:
+    student = await repo.get_student_by_tg(session, user.id)
+    kind = next((k for k in PAGED if k.value == callback_data.kind), None)
+    if student is None or kind is None:
+        await cb.answer()
+        return
+    if student.document(kind) is not None:
+        await cb.answer(_("mydocs.already_sent"), show_alert=True)
+        return
+    await cb.answer()
+    await drop_screen(bot, cb.message.chat.id, state)
+    await state.set_data({"doc_kind": kind.value, "pages": [], "pages_msg": None})
+    await state.set_state(MyDocuments.files)
+    body = f"<b>{_(f'step.{kind.value}')}</b>\n\n{_(f'reg.{kind.value}', max=prefs.max_document_pages)}"
+    await screen(bot, cb.message.chat.id, state, body, kb.cancel_kb(_))
+
+
+@router.message(MyDocuments.files, F.photo | F.document)
+async def on_my_document_file(message: Message, state: FSMContext, session: AsyncSession, user: User, _: Translator, prefs: Prefs, bot: Bot) -> None:
+    kind = DocumentKind((await state.get_data())["doc_kind"])
+    try:
+        file = extract_file(message, kind)
+    except FileRejected as e:
+        await say_error(message, state, _(file_error(e, kind)), bot)
+        return
+    async with _locks[user.id]:
+        if await state.get_state() != MyDocuments.files.state:
+            return
+        if files := await collect_page(message, state, file, _, prefs, bot):
+            await _save_my_document(message.chat.id, kind, files, state, session, user, _, bot)
+
+
+@router.callback_query(MyDocuments.files, RegCb.filter(F.action == "done"))
+async def on_my_document_done(cb: CallbackQuery, state: FSMContext, session: AsyncSession, user: User, _: Translator, bot: Bot) -> None:
+    async with _locks[user.id]:
+        data = await state.get_data()
+        if not data.get("pages"):
+            await cb.answer(_("err.no_pages"), show_alert=True)
+            return
+        await cb.answer()
+        await delete_quietly(bot, cb.message.chat.id, cb.message.message_id)
+        await _save_my_document(cb.message.chat.id, DocumentKind(data["doc_kind"]), data["pages"], state, session, user, _, bot)
+
+
+@router.message(MyDocuments.files)
+async def on_my_document_other(message: Message, state: FSMContext, _: Translator, bot: Bot) -> None:
+    await say_error(message, state, _("file_err.expected"), bot)
+
+
+async def _save_my_document(
+    chat_id: int, kind: DocumentKind, files: list[dict], state: FSMContext, session: AsyncSession, user: User, _: Translator, bot: Bot
+) -> None:
+    await clear_error(chat_id, state, bot)
+    await drop_screen(bot, chat_id, state)
+    await state.clear()
+    student = await repo.get_student_by_tg(session, user.id)
+    if student is None or student.document(kind) is not None:  # e.g. sent twice at once
+        return
+    repo.set_document_files(student, kind, files)
+    student.updated_at = repo.utcnow()
+    await repo.audit(
+        session, repo.tg_actor(user.id), "document.add", entity="student", entity_id=student.id,
+        summary=f"{kind.value} · {student.full_name}", details={"files": len(files)},
+    )
+    await session.commit()
+    log.info("Student %s sent a missing document (%s)", user.id, kind.value)
+    text = _("mydocs.saved", doc=_(f"field.{kind.value}"))
+    missing = missing_documents(student)
+    if missing:
+        text += "\n\n" + _("mydocs.missing")
+    await bot.send_message(chat_id, text, reply_markup=kb.add_documents_kb(_, missing) if missing else None)

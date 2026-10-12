@@ -7,8 +7,8 @@ from typing import Callable
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 
-from app.callbacks import AdminCb, CertCb, CertReviewCb, EditFieldCb, GroupPickCb, LangCb, RegCb, StaffCb
-from app.db.models import Account, Certificate, CertStatus, CertType, Group, Language, StaffRole, Student
+from app.callbacks import AdminCb, CertCb, CertReviewCb, DocCb, EditFieldCb, GroupPickCb, LangCb, RegCb, StaffCb
+from app.db.models import Account, Certificate, CertStatus, CertType, DocumentKind, Group, Language, StaffRole, Student
 from app.db.repo import Access, GroupStat
 from app.i18n import Translator, t
 from app.services import certificates as certs
@@ -154,6 +154,12 @@ def reg_gender_kb(_: Translator) -> InlineKeyboardMarkup:
     )
 
 
+def no_patronymic_kb(_: Translator, *, back: bool) -> InlineKeyboardMarkup:
+    """Foreign documents: the student may have no patronymic."""
+    exit_ = _btn(_("btn.back"), RegCb(action="return").pack()) if back else _btn(_("btn.cancel"), "cancel")
+    return inline([_btn(_("btn.no_patronymic"), RegCb(action="no_middle").pack())], [exit_])
+
+
 def back_kb(_: Translator) -> InlineKeyboardMarkup:
     return inline([_btn(_("btn.back"), RegCb(action="return").pack())])
 
@@ -195,9 +201,16 @@ def edit_fields_kb(_: Translator) -> InlineKeyboardMarkup:
         [_field_btn(_, "middle_name"), _field_btn(_, "gender")],
         [_btn(_("field.phone"), EditFieldCb(field="phone").pack()), _btn(_("field.group"), EditFieldCb(field="group").pack())],
         [_btn(_("field.photo"), EditFieldCb(field="photo").pack()), _btn(_("field.cv"), EditFieldCb(field="cv").pack())],
+        [_btn(_("field.address"), EditFieldCb(field="address").pack()), _btn(_("field.temp_address"), EditFieldCb(field="temp_address").pack())],
+        [_btn(_("field.school_cert"), EditFieldCb(field="school_cert").pack()), _btn(_("field.medical"), EditFieldCb(field="medical").pack())],
         [_btn(_("field.document"), EditFieldCb(field="document").pack()), _btn(_("field.certs"), EditFieldCb(field="certs").pack())],
         [_btn(_("btn.back"), RegCb(action="back").pack())],
     )
+
+
+def add_documents_kb(_: Translator, kinds: list[DocumentKind]) -> InlineKeyboardMarkup:
+    """A registered student's missing documents: one button each to send it."""
+    return inline(*[[_btn(_(f"field.{k.value}"), DocCb(action="add", kind=k.value).pack())] for k in kinds])
 
 
 # ------------------------------------------------------------------ certificates
@@ -227,11 +240,6 @@ def cert_type_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
     return inline(*rows, [cert_exit(_, back)])
 
 
-def cefr_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
-    levels = [_btn(level, CertCb(action="result", value=level).pack()) for level in certs.CEFR_LEVELS]
-    return inline(levels[:3], levels[3:], [cert_exit(_, back)])
-
-
 def cert_exit_kb(_: Translator, *, back: bool = False) -> InlineKeyboardMarkup:
     return inline([cert_exit(_, back)])
 
@@ -249,7 +257,7 @@ def reg_certs_kb(_: Translator, items: list[dict]) -> InlineKeyboardMarkup:
     """Registration step: add certificates (optional), remove one, then continue."""
     rows = [[_btn(_("btn.add_certificate"), CertCb(action="add").pack())]] if len(items) < certs.MAX_PER_STUDENT else []
     for i, c in enumerate(items):
-        rows.append([_btn(f"🗑 {certs.describe(_.lang, c['type'], c['result'])}"[:60], CertCb(action="rdel", value=str(i)).pack())])
+        rows.append([_btn(f"🗑 {certs.describe(_.lang, c['type'], c.get('result'))}"[:60], CertCb(action="rdel", value=str(i)).pack())])
     rows.append([_btn(_("btn.continue") if items else _("btn.no_certs"), RegCb(action="certs_done").pack())])
     return inline(*rows)
 
@@ -307,13 +315,20 @@ def staff_group_kb(
     return b.as_markup()
 
 
+# Documents staff can open from the card (the 3x4 photo is the card itself).
+CARD_DOCUMENTS = {
+    DocumentKind.PASSPORT: "btn.passport", DocumentKind.CV: "btn.cv", DocumentKind.ADDRESS: "field.address",
+    DocumentKind.TEMP_ADDRESS: "field.temp_address", DocumentKind.SCHOOL_CERT: "field.school_cert", DocumentKind.MEDICAL: "field.medical",
+}
+
+
 def student_card_kb(_: Translator, student: Student, *, can_edit: bool, can_delete: bool) -> InlineKeyboardMarkup:
-    kinds = {d.kind.value for d in student.documents}
-    docs = []
-    if "passport" in kinds:
-        docs.append(_btn(_("btn.passport"), StaffCb(action="doc", student_id=student.id, value="passport").pack()))
-    if "cv" in kinds:
-        docs.append(_btn(_("btn.cv"), StaffCb(action="doc", student_id=student.id, value="cv").pack()))
+    kinds = {d.kind for d in student.documents}
+    docs = [
+        _btn(_(label), StaffCb(action="doc", student_id=student.id, value=kind.value).pack())
+        for kind, label in CARD_DOCUMENTS.items()
+        if kind in kinds
+    ]
     certificates = []
     if student.certificates:
         label = _("btn.student_certs", n=len(student.certificates))
@@ -323,7 +338,8 @@ def student_card_kb(_: Translator, student: Student, *, can_edit: bool, can_dele
         actions.append(_btn(_("btn.edit_student"), StaffCb(action="edit", student_id=student.id).pack()))
     if can_delete:
         actions.append(_btn(_("btn.delete"), StaffCb(action="del", student_id=student.id).pack()))
-    return inline(docs, certificates, actions, [_btn(_("btn.close"), StaffCb(action="close").pack())])
+    doc_rows = [docs[i : i + 2] for i in range(0, len(docs), 2)]
+    return inline(*doc_rows, certificates, actions, [_btn(_("btn.close"), StaffCb(action="close").pack())])
 
 
 EDITABLE = ("last_name", "first_name", "middle_name", "birth_date", "gender", "phone", "group")

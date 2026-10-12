@@ -11,7 +11,7 @@ from sqlalchemy import func, or_, select, true
 from sqlalchemy.orm import selectinload
 
 from app.db import repo
-from app.db.models import AuditLog, CertStatus, DocumentKind, Gender, Group, Student
+from app.db.models import REQUIRED_DOCUMENTS, AuditLog, CertStatus, DocumentKind, Gender, Group, Student
 from app.services.prefs import Prefs, load_prefs, save_prefs
 from app.web.deps import DB, AdminUser, SettingsDep, StaffUser
 
@@ -37,14 +37,13 @@ async def stats(user: StaffUser, session: DB, settings: SettingsDep) -> dict:
     genders = dict((await session.execute(select(Student.gender, func.count()).where(scope).group_by(Student.gender))).all())
 
     students = (await session.scalars(select(Student).where(scope).options(selectinload(Student.documents)))).all()
-    docs = {"complete": 0, "no_photo": 0, "no_cv": 0}
+    counted = {"no_photo": DocumentKind.PHOTO, "no_cv": DocumentKind.CV, "no_address": DocumentKind.ADDRESS, "no_school_cert": DocumentKind.SCHOOL_CERT}
+    docs = {"complete": 0, **{key: 0 for key in counted}}
     for s in students:
         kinds = {d.kind for d in s.documents}
-        if DocumentKind.PHOTO not in kinds:
-            docs["no_photo"] += 1
-        if DocumentKind.CV not in kinds:
-            docs["no_cv"] += 1
-        if kinds >= set(DocumentKind):
+        for key, kind in counted.items():
+            docs[key] += kind not in kinds
+        if kinds >= set(REQUIRED_DOCUMENTS):
             docs["complete"] += 1
 
     group_stmt = select(Group.id, Group.name, func.count(Student.id)).outerjoin(Student, Student.group_id == Group.id)

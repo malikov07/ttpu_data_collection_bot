@@ -22,8 +22,10 @@ def td3(
     sex="M",
     expiry="310520",
     personal="32103051234567",
+    code="P<",
+    issuing="UZB",
 ) -> list[str]:
-    l1 = (f"P<UZB{surname}<<{given.replace(' ', '<')}" + "<" * 44)[:44]
+    l1 = (f"{code}{issuing}{surname}<<{given.replace(' ', '<')}" + "<" * 44)[:44]
     personal = (personal + "<" * 14)[:14]
     pcheck = check_digit(personal) if personal.strip("<") else "<"
     body = number + check_digit(number) + nationality + dob + check_digit(dob) + sex + expiry + check_digit(expiry) + personal + pcheck
@@ -77,6 +79,26 @@ def document_image(
         im = im.filter(ImageFilter.GaussianBlur(blur))
     buf = io.BytesIO()
     im.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
+
+
+def td2(*, surname="SCHMIDT", given="ANNA", number="T22000129", issuing="DEU", nationality="DEU",
+        dob="040812", sex="F", expiry="310101") -> list[str]:
+    """A TD2 card (2 x 36): photo and MRZ on the same side."""
+    l1 = (f"I<{issuing}{surname}<<{given}" + "<" * 36)[:36]
+    optional = "<" * 7
+    body = number + check_digit(number) + nationality + dob + check_digit(dob) + sex + expiry + check_digit(expiry) + optional
+    composite = number + check_digit(number) + dob + check_digit(dob) + expiry + check_digit(expiry) + optional
+    return [l1, body + check_digit(composite)]
+
+
+def shrink(data: bytes, shorter_side: int) -> bytes:
+    """The same image made small, like a downloaded e-ID (PNG, sharp)."""
+    im = Image.open(io.BytesIO(data))
+    scale = shorter_side / min(im.size)
+    im = im.resize((round(im.size[0] * scale), round(im.size[1] * scale)), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
     return buf.getvalue()
 
 

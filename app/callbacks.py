@@ -8,12 +8,19 @@ class LangCb(CallbackData, prefix="lang"):
 
 
 class RegCb(CallbackData, prefix="reg"):
-    # consent | correct | retake | done | submit | edit | back | return
+    # consent | correct | retake | done | skip | submit | edit | back | return | no_middle | certs_done
     action: str
 
 
+class DocCb(CallbackData, prefix="doc"):
+    # add: a registered student sends a missing document (kind = DocumentKind value)
+    action: str
+    kind: str = ""
+
+
 class EditFieldCb(CallbackData, prefix="ef"):
-    # last_name | first_name | middle_name | gender | document | phone | group | photo | cv
+    # last_name | first_name | middle_name | gender | document | phone | group | photo
+    # | cv | address | temp_address | school_cert | medical | certs
     field: str
     value: str = ""  # gender: male | female
 
@@ -26,7 +33,7 @@ class GroupPickCb(CallbackData, prefix="gp"):
 
 
 class CertCb(CallbackData, prefix="cert"):
-    # student: list | add | type | result | done | submit | del | del_ok
+    # student: list | add | type | done | submit | del | del_ok | back | rdel
     action: str
     id: int = 0
     value: str = ""

@@ -72,18 +72,22 @@ async def test_backup_holds_every_student_file(h, settings, monkeypatch):
         folder = f"files/SE-24-01/{student.full_name} [{student.id}]"
 
     b = await backup.create_backup(h.bot, settings, h.sessions)
-    assert (b.students, b.files, b.missing) == (1, 4, 1)
+    assert (b.students, b.files, b.missing) == (1, 6, 1)
     with pyzipper.AESZipFile(b.path) as zf:
         names = set(zf.namelist())
         assert zf.read(f"{folder}/passport-main.jpg") == b"data:pass-100"
         assert zf.read(f"{folder}/photo.jpg") == b"data:face-100"
         assert zf.read(f"{folder}/cv.pdf") == b"%PDF web"  # website upload replaced the bot's CV
+        assert zf.read(f"{folder}/address.pdf") == b"data:doc-address.pdf"
+        assert zf.read(f"{folder}/school_cert.pdf") == b"data:doc-school.pdf"
         assert zf.read(f"{folder}/certificate 1 - ielts 7.5 (pending) 1.jpg") == b"data:ielts-1"
         assert f"{folder}/certificate 1 - ielts 7.5 (pending) 2.jpg" in zf.read(backup.MISSING).decode()
         assert {"database.sqlite3", "students.xlsx", "uploads/1/x.pdf"} <= names
 
     # Downloaded once; files no student uses any more leave the cache.
-    assert sorted(p.name for p in settings.telegram_files_dir.iterdir()) == ["u-face-100", "u-ielts-1", "u-pass-100"]
+    assert sorted(p.name for p in settings.telegram_files_dir.iterdir()) == [
+        "u-address.pdf", "u-face-100", "u-ielts-1", "u-pass-100", "u-school.pdf",
+    ]
     downloads.clear()
     await backup.create_backup(h.bot, settings, h.sessions)
     assert downloads == ["gone"]

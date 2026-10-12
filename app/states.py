@@ -10,13 +10,20 @@ class Registration(StatesGroup):
     group = State()
     photo = State()  # 3x4
     cv = State()
+    address = State()  # permanent address certificate (my.gov.uz)
+    temp_address = State()  # optional
+    school_cert = State()  # school leaving certificate (shahodatnoma)
+    medical = State()  # optional: form 086/u
     certs = State()  # optional: certificates and awards
     review = State()
 
 
+class MyDocuments(StatesGroup):
+    files = State()  # a registered student sends a document that is missing
+
+
 class CertStates(StatesGroup):
     type = State()
-    result = State()  # score / level / description
     files = State()
     confirm = State()
 

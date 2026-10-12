@@ -114,7 +114,7 @@ def student_files(students: list[Student]) -> list[tuple[str, dict]]:
                 part = f.get("side") or (str(i) if len(doc.files) > 1 else "")
                 out.append((f"{folder}/{doc.kind.value}{'-' + part if part else ''}{_ext(f)}", f))
         for c in s.certificates:
-            base = _safe(f"certificate {c.id} - {c.type.value} {c.result} ({c.status.value})")
+            base = _safe(f"certificate {c.id} - {' '.join(filter(None, (c.type.value, c.result)))} ({c.status.value})")
             for i, f in enumerate(c.files, start=1):
                 out.append((f"{folder}/{base}{f' {i}' if len(c.files) > 1 else ''}{_ext(f)}", f))
     return out

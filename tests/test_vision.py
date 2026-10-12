@@ -10,7 +10,7 @@ from datetime import date
 from PIL import Image
 
 from app.services import vision
-from tests.mrz_samples import document_image, plain_image, td1, td3
+from tests.mrz_samples import document_image, plain_image, shrink, td1, td2, td3
 
 TODAY = date(2026, 9, 30)
 
@@ -41,6 +41,7 @@ def test_reads_id_card_back():
 def test_rejects_bad_photos():
     assert read(document_image(td3(), blur=4.0)).error == "blurry"
     assert read(plain_image()).error in {"blurry", "not_found"}
+    assert read(plain_image(400, 260)).error in {"blurry", "not_found"}  # small is fine if readable
     assert read(plain_image(300, 200)).error == "too_small"
     assert read(b"not an image").error == "not_image"
 
@@ -60,3 +61,37 @@ def test_portrait_checks():
     buf = io.BytesIO()
     im.save(buf, format="JPEG")
     assert vision._check_portrait(buf.getvalue()) == "no_face"
+
+
+def test_reads_small_downloaded_e_id_images():
+    """e-ID images downloaded from my.gov.uz are small (e.g. 856x540) but sharp."""
+    for side in (540, 380, 300):
+        r = read(shrink(document_image(td1()), side))
+        assert r.error is None and r.mrz.document_number == "AD1234567", side
+    assert read(shrink(document_image(td3()), 320)).error is None
+    error, _ = vision._check_id_front(shrink(document_image(td1()), 300))
+    assert error == "no_face"  # read and checked, not refused as "too small"
+
+
+def test_foreign_documents():
+    # A German passport: no PINFL, and "Dietrich" (a name) is not a patronymic.
+    page = document_image(
+        td3(surname="MUELLER", given="DIETRICH", number="C01X00T47", nationality="D<<", personal="", issuing="D<<"),
+        labels=["BUNDESREPUBLIK DEUTSCHLAND", "DIETRICH"],
+    )
+    r = read(page)
+    assert r.error is None and (r.mrz.last_name, r.mrz.first_name) == ("MUELLER", "DIETRICH")
+    assert r.mrz.issuing_state == "D" and r.mrz.pinfl is None and r.patronymic is None
+    # A visa sticker has an MRZ too, but it isn't the passport page.
+    assert read(document_image(td3(code="V<", issuing="UZB", surname="SMITH", given="JOHN", personal=""))).error == "visa"
+    # TD2 card: photo and MRZ on one side, so no front side is asked for.
+    r = read(document_image(td2()))
+    assert r.error is None and r.mrz.format == "TD2" and not r.mrz.needs_front
+
+
+def test_single_name_passport():
+    from app.services.mrz import find_mrz
+
+    lines = td3(surname="", given="SITI", number="X12345678", nationality="IDN", issuing="IDN", personal="")
+    mrz = find_mrz(lines)
+    assert (mrz.last_name, mrz.first_name) == ("SITI", "")

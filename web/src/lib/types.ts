@@ -1,6 +1,9 @@
 export type Role = "admin" | "tutor" | "leader";
 export type Gender = "male" | "female";
-export type DocKind = "passport" | "photo" | "cv";
+export type DocKind = "passport" | "photo" | "cv" | "address" | "temp_address" | "school_cert" | "medical";
+/** Every student must have these; the others are optional. */
+export const REQUIRED_DOCS = ["passport", "photo", "cv", "address", "school_cert"] as const satisfies readonly DocKind[];
+export const ALL_DOCS: DocKind[] = ["passport", "photo", "cv", "address", "temp_address", "school_cert", "medical"];
 export type DocType = "passport" | "id_card";
 export type CertType = "ielts" | "toefl" | "sat" | "duolingo" | "cefr" | "national" | "olympiad" | "other";
 export type CertStatus = "pending" | "approved" | "rejected";
@@ -127,7 +130,7 @@ export interface Stats {
   last_7_days: number;
   per_day: { date: string; count: number }[];
   gender: Record<Gender, number>;
-  documents: { complete: number; no_photo: number; no_cv: number };
+  documents: { complete: number; no_photo: number; no_cv: number; no_address: number; no_school_cert: number };
   by_group: { id: number; name: string; students: number }[];
   certificates: { pending: number; approved: number };
 }

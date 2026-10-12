@@ -57,8 +57,10 @@ function DocumentsBreakdown({ docs }: { docs: Stats["documents"] }) {
     { key: "complete", label: t("dashboard.docs_complete"), value: docs.complete, color: "bg-emerald-500", filter: "complete" },
     { key: "no_photo", label: t("dashboard.docs_no_photo"), value: docs.no_photo, color: "bg-amber-400", filter: "missing" },
     { key: "no_cv", label: t("dashboard.docs_no_cv"), value: docs.no_cv, color: "bg-orange-400", filter: "missing" },
+    { key: "no_address", label: t("dashboard.docs_no_address"), value: docs.no_address, color: "bg-rose-400", filter: "missing" },
+    { key: "no_school_cert", label: t("dashboard.docs_no_school_cert"), value: docs.no_school_cert, color: "bg-red-400", filter: "missing" },
   ];
-  const total = Math.max(1, docs.complete + Math.max(docs.no_photo, docs.no_cv));
+  const total = Math.max(1, docs.complete + Math.max(docs.no_photo, docs.no_cv, docs.no_address, docs.no_school_cert));
   return (
     <div>
       <div className="flex h-2.5 overflow-hidden rounded-full bg-slate-100">

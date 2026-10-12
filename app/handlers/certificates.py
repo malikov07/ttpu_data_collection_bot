@@ -1,6 +1,6 @@
 """Students send certificates and awards (IELTS, SAT, CEFR, olympiads…).
 
-Steps: type → score / level / description → file(s) → confirm. They are added
+Steps: type → file(s) → confirm. No score is asked: staff see it on the file. They are added
 during registration (an optional step: kept in the form until it is submitted)
 or later from «My certificates». Each one waits for staff to accept it; the
 student gets a message with the decision. Accepted certificates are final;
@@ -28,11 +28,10 @@ from app.handlers.common import show_main_menu
 from app.handlers.registration import ask as ask_step
 from app.handlers.registration import clear_error, say_error
 from app.handlers.ui import delete_quietly, drop_screen, screen
-from app.i18n import Translator, menu_buttons, t, variants
+from app.i18n import Translator, t, variants
 from app.services import certificates as certs
 from app.services.documents import CERTIFICATE_MIMES, FileRejected, extract_file, is_image
 from app.services.prefs import Prefs
-from app.services.validators import ValidationError
 from app.states import CertStates, Registration
 from app.views import render_my_certificates
 
@@ -42,7 +41,7 @@ router = Router(name="certificates")
 # Albums arrive as several simultaneous updates: handle one file per user at a time.
 _locks: defaultdict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 # Keys of a certificate being added; "in_reg" = added during registration.
-CERT_KEYS = {"cert_type": None, "result": None, "files": None, "pages": [], "pages_msg": None, "in_reg": False}
+CERT_KEYS = {"cert_type": None, "files": None, "pages": [], "pages_msg": None, "in_reg": False}
 
 
 async def in_registration(state: FSMContext) -> bool:
@@ -50,12 +49,7 @@ async def in_registration(state: FSMContext) -> bool:
 
 
 def cert_title(_: Translator, data: dict) -> str:
-    """"🏆 IELTS" while choosing, "🏆 IELTS 7.5" once the result is known."""
-    cert_type = CertType(data["cert_type"])
-    name = certs.type_label(_.lang, cert_type)
-    if result := data.get("result"):
-        name += (": " if cert_type in certs.DESCRIBED else " ") + result
-    return f"🏆 <b>{escape(name)}</b>"
+    return f"🏆 <b>{escape(certs.type_label(_.lang, data['cert_type']))}</b>"
 
 
 async def show_list(chat_id: int, student: Student, _: Translator, bot: Bot, *, edit: Message | None = None) -> None:
@@ -130,50 +124,15 @@ async def on_back(cb: CallbackQuery, state: FSMContext, session: AsyncSession, _
 
 
 @router.callback_query(CertStates.type, CertCb.filter(F.action == "type"))
-async def on_type(cb: CallbackQuery, callback_data: CertCb, state: FSMContext, _: Translator, bot: Bot) -> None:
+async def on_type(cb: CallbackQuery, callback_data: CertCb, state: FSMContext, _: Translator, prefs: Prefs, bot: Bot) -> None:
     await cb.answer()
     if callback_data.value not in {c.value for c in CertType}:
         return
-    cert_type = CertType(callback_data.value)
-    await state.update_data(cert_type=cert_type.value, result=None)
-    await state.set_state(CertStates.result)
-    data = await state.get_data()
-    back = bool(data.get("in_reg"))
-    markup = kb.cefr_kb(_, back=back) if cert_type == CertType.CEFR else kb.cert_exit_kb(_, back=back)
-    await screen(bot, cb.message.chat.id, state, f"{cert_title(_, data)}\n\n{_(f'cert.ask.{cert_type.value}')}", markup)
-
-
-async def _save_result(raw: str, message: Message, state: FSMContext, _: Translator, prefs: Prefs, bot: Bot) -> None:
-    data = await state.get_data()
-    cert_type = CertType(data["cert_type"])
-    try:
-        result = certs.normalize_result(cert_type, raw)
-    except ValidationError as e:
-        key = cert_type.value if cert_type in certs.SCORES else e.key
-        await say_error(message, state, _(f"cert.err.{key}"), bot)
-        return
-    await clear_error(message.chat.id, state, bot)
-    await state.update_data(result=result, pages=[], pages_msg=None, files=None)
+    await state.update_data(cert_type=callback_data.value, pages=[], pages_msg=None, files=None)
     await state.set_state(CertStates.files)
     data = await state.get_data()
     body = f"{cert_title(_, data)}\n\n{_('cert.ask_files', max=prefs.max_document_pages)}"
-    await screen(bot, message.chat.id, state, body, kb.cert_exit_kb(_, back=bool(data.get("in_reg"))))
-
-
-@router.message(CertStates.result, F.text, ~F.text.startswith("/"), ~F.text.in_(menu_buttons()))
-async def on_result_text(message: Message, state: FSMContext, _: Translator, prefs: Prefs, bot: Bot) -> None:
-    await _save_result(message.text, message, state, _, prefs, bot)
-
-
-@router.callback_query(CertStates.result, CertCb.filter(F.action == "result"))
-async def on_result_button(cb: CallbackQuery, callback_data: CertCb, state: FSMContext, _: Translator, prefs: Prefs, bot: Bot) -> None:
-    await cb.answer()
-    await _save_result(callback_data.value, cb.message, state, _, prefs, bot)
-
-
-@router.message(CertStates.result, ~F.text)
-async def on_result_other(message: Message, state: FSMContext, _: Translator, bot: Bot) -> None:
-    await say_error(message, state, _("cert.err.type_text"), bot)
+    await screen(bot, cb.message.chat.id, state, body, kb.cert_exit_kb(_, back=bool(data.get("in_reg"))))
 
 
 # ------------------------------------------------------------------ files
@@ -251,15 +210,15 @@ async def on_submit(
     cb: CallbackQuery, state: FSMContext, session: AsyncSession, user: User, _: Translator, prefs: Prefs, bot: Bot
 ) -> None:
     data = await state.get_data()
-    if data.get("in_reg") and data.get("files") and data.get("result"):
+    if data.get("in_reg") and data.get("files") and data.get("cert_type"):
         # During registration: into the form; saved with the student on «Submit».
-        item = {"type": data["cert_type"], "result": data["result"], "files": data["files"]}
+        item = {"type": data["cert_type"], "files": data["files"]}
         await state.update_data(reg_certs=[*(data.get("reg_certs") or []), item], **CERT_KEYS)
         await cb.answer(_("cert.added"))
         await ask_step("certs", cb.message.chat.id, state, session, _, prefs, bot)
         return
     student = await repo.get_student_by_tg(session, user.id)
-    if student is None or not data.get("files") or not data.get("result"):
+    if student is None or not data.get("files") or not data.get("cert_type"):
         await cb.answer()
         await drop_screen(bot, cb.message.chat.id, state)
         await state.clear()
@@ -268,7 +227,7 @@ async def on_submit(
         await cb.answer(_("cert.limit", max=certs.MAX_PER_STUDENT), show_alert=True)
         return
     await cb.answer()
-    cert = await repo.add_certificate(session, student, CertType(data["cert_type"]), data["result"], data["files"])
+    cert = await repo.add_certificate(session, student, CertType(data["cert_type"]), "", data["files"])
     await repo.audit(
         session, repo.tg_actor(user.id), "certificate.submit", entity="student", entity_id=student.id,
         summary=f"{certs.label('en', cert)} · {student.full_name}",

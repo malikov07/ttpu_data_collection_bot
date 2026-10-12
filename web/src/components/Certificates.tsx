@@ -14,9 +14,11 @@ import { Badge, Button, Field, Textarea } from "./ui";
 export const CERT_TYPES: CertType[] = ["ielts", "toefl", "sat", "duolingo", "cefr", "national", "olympiad", "other"];
 const DESCRIBED: CertType[] = ["national", "olympiad", "other"];
 
-/** "IELTS 7.5", "National certificate: Mathematics A+" */
+/** "IELTS"; older certificates also have the score the student typed: "IELTS 7.5", "National certificate: Mathematics A+" */
 export function certLabel(t: Translate, c: Pick<Certificate, "type" | "result">): string {
-  return `${t(`cert.type.${c.type}`)}${DESCRIBED.includes(c.type) ? ": " : " "}${c.result}`;
+  const name = t(`cert.type.${c.type}`);
+  if (!c.result) return name;
+  return `${name}${DESCRIBED.includes(c.type) ? ": " : " "}${c.result}`;
 }
 
 const STATUS = {

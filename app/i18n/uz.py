@@ -42,10 +42,13 @@ TEXTS: dict[str, str] = {
     "welcome.new": (
         "🎓 <b>Toshkent shahridagi Turin politexnika universiteti</b>\n"
         "Talabalar maʼlumotlarini yigʻish\n\n"
-        "Bu taxminan <b>3 daqiqa</b> vaqt oladi. Tayyorlab qoʻying:\n"
+        "Bu taxminan <b>5 daqiqa</b> vaqt oladi. Tayyorlab qoʻying:\n"
         "🪪 pasport yoki ID karta\n"
         "🖼 3×4 rasm\n"
         "📄 rezyume (PDF yoki Word)\n"
+        "🏠 my.gov.uz dan doimiy yashash manzili haqida maʼlumotnoma\n"
+        "📜 maktab shahodatnomasi\n"
+        "🏘 vaqtinchalik propiska va 🩺 086 shakl, agar boʻlsa\n"
         "🏆 sertifikatlar (IELTS, SAT…), agar boʻlsa\n\n"
         "🔒 Maʼlumotlaringiz <b>universitetning oʻz serverida</b> oʻqiladi, hech qanday tashqi "
         "yoki sunʼiy intellekt xizmatlariga yuborilmaydi. Ularni faqat guruh sardoringiz va "
@@ -54,6 +57,10 @@ TEXTS: dict[str, str] = {
     ),
     "btn.consent": "✅ Roziman, boshlash",
     "welcome.back": "👋 Qaytganingiz bilan, <b>{name}</b>!",
+    "mydocs.missing": "📎 <b>Baʼzi hujjatlar yetishmayapti.</b> Yuborish uchun quyidagilardan birini bosing.",
+    "mydocs.saved": "✅ Qabul qilindi: <b>{doc}</b>",
+    "mydocs.already_sent": "Bu hujjat allaqachon yuborilgan. Oʻzgartirish uchun tyutor yoki guruh sardoriga murojaat qiling.",
+    "mydocs.reminder": "📎 Baʼzi hujjatlaringiz yetishmayapti (doimiy manzil, shahodatnoma…). Ularni yuborish uchun «👤 Profilim»ni oching.",
     "welcome.staff": "👋 Assalomu alaykum, <b>{name}</b>!\n{roles}",
     "role.admin": "🛡 Administrator",
     "role.tutor": "🎓 Tyutor: barcha guruhlar",
@@ -79,6 +86,10 @@ TEXTS: dict[str, str] = {
     "step.group": "🎓 Guruh",
     "step.photo": "🖼 3×4 rasm",
     "step.cv": "📄 Rezyume",
+    "step.address": "🏠 Doimiy yashash manzili",
+    "step.temp_address": "🏘 Vaqtinchalik yashash manzili",
+    "step.school_cert": "📜 Shahodatnoma",
+    "step.medical": "🩺 086 tibbiy shakl",
     "reg.document": (
         "Hujjatingiz rasmini yuboring:\n\n"
         "• <b>pasport</b>: rasmingiz bor asosiy sahifa\n"
@@ -116,6 +127,22 @@ TEXTS: dict[str, str] = {
     ),
     "reg.photo_tip": "💡 Bosma 3×4 rasmning skani yoki aniq surati ham boʻladi.",
     "reg.cv": "<b>Rezyume</b>ni PDF yoki Word fayl koʻrinishida yuboring.\n<i>Sahifalar rasmi ham boʻladi ({max} tagacha); oxirgisidan soʻng «Tayyor»ni bosing.</i>",
+    "reg.address": (
+        "<b>my.gov.uz</b> dan olingan <b>doimiy yashash manzili</b> (propiska) haqidagi maʼlumotnomani yuboring: PDF fayl, skrinshot yoki rasm.\n"
+        "<i>Bir necha sahifa boʻlsa, rasmlarni ketma-ket yuboring ({max} tagacha) va «Tayyor»ni bosing.</i>"
+    ),
+    "reg.temp_address": (
+        "<b>Vaqtinchalik yashash manzili</b> boʻyicha roʻyxatdan oʻtganmisiz (vaqtinchalik propiska)? Maʼlumotnomani PDF yoki rasm koʻrinishida yuboring.\n"
+        "<i>Bir necha sahifa boʻlsa, rasmlarni yuboring ({max} tagacha) va «Tayyor»ni bosing. Vaqtinchalik propiska boʻlmasa, «Oʻtkazib yuborish»ni bosing.</i>"
+    ),
+    "reg.school_cert": (
+        "Maktabni bitirganlik haqidagi <b>shahodatnoma</b>ni yuboring: PDF yoki barcha sahifalarining rasmi.\n"
+        "<i>Rasmlarni ketma-ket yuboring ({max} tagacha) va «Tayyor»ni bosing.</i>"
+    ),
+    "reg.medical": (
+        "<b>086/u shakldagi tibbiy maʼlumotnoma</b>ni yuboring: PDF yoki rasm.\n"
+        "<i>Bir necha sahifa boʻlsa, rasmlarni yuboring ({max} tagacha) va «Tayyor»ni bosing. Hali yoʻq boʻlsa, «Oʻtkazib yuborish»ni bosing.</i>"
+    ),
     "reg.page_added": "📄 {n}-sahifa qabul qilindi. Keyingisini yuboring yoki «Tayyor»ni bosing.",
     "reg.max_pages": "Maksimal {max} sahifa. «Tayyor»ni bosing.",
     "reg.checking": "⏳ Tekshirilmoqda…",
@@ -138,9 +165,17 @@ TEXTS: dict[str, str] = {
     "field.group": "🎓 Guruh",
     "field.photo": "🖼 Rasm",
     "field.cv": "📄 Rezyume",
+    "field.address": "🏠 Doimiy manzil",
+    "field.temp_address": "🏘 Vaqtinchalik manzil",
+    "field.school_cert": "📜 Shahodatnoma",
+    "field.medical": "🩺 086 shakl",
     "doc.ok": "✅",
     "doc.missing": "—",
-    "docs.line": "🪪 Hujjat {passport}   🖼 Rasm {photo}   📄 Rezyume {cv}",
+    "docs.line": (
+        "🪪 Hujjat {passport}   🖼 Rasm {photo}   📄 Rezyume {cv}\n"
+        "🏠 Doimiy manzil {address}   🏘 Vaqtinchalik {temp_address}\n"
+        "📜 Shahodatnoma {school_cert}   🩺 086 shakl {medical}"
+    ),
     "reg.done": (
         "🎉 <b>Tayyor! Maʼlumotlaringiz yuborildi.</b>\n\n"
         "Biror narsa notoʻgʻri boʻlsa, tyutor yoki guruh sardoriga murojaat qiling: ular tuzatib beradi.\n\n"
@@ -159,6 +194,8 @@ TEXTS: dict[str, str] = {
     "doc_err.partial": "❌ Hujjatning bir qismi kesilib qolgan. <b>Butun sahifa</b>, jumladan pastki qatorlar ham rasmda boʻlsin.",
     "doc_err.unreadable": "❌ Hujjatni ishonchli oʻqib boʻlmadi (yaltirash yoki soya?). Iltimos, yangi rasm yuboring.",
     "doc_err.expired": "❌ Bu hujjatning <b>amal qilish muddati tugagan</b>. Amaldagi pasport yoki ID karta yuboring.",
+    "doc_err.visa": "❌ Bu <b>viza</b>. Iltimos, pasportingizning asosiy sahifasini (rasmingiz bor sahifani) yuboring.",
+    "btn.no_patronymic": "Hujjatimda otamning ismi yoʻq",
     "doc_err.age": "❌ Bu hujjatdagi tugʻilgan sana ruxsat etilgan yoshga mos kelmaydi. Oʻz hujjatingizni yuboring.",
     "doc_err.duplicate": "⛔️ Bu hujjat boshqa Telegram akkauntidan allaqachon roʻyxatdan oʻtgan. Tyutoringizga murojaat qiling.",
     "doc_err.front": "❌ Bu ID kartaning old tomoniga oʻxshamaydi (unda rasmingiz koʻrinmayapti). Qayta urinib koʻring.",
@@ -170,9 +207,10 @@ TEXTS: dict[str, str] = {
     "photo_err.many_faces": "❌ Rasmda bir nechta yuz bor. <b>Faqat oʻzingiz</b> tushgan portret yuboring.",
     "photo_err.face_too_small": "❌ Yuzingiz juda kichik. 3×4 rasmda yuz kadrning katta qismini egallashi kerak.",
     "file_err.type": "❌ Bu fayl turi bu yerda qabul qilinmaydi.",
+    "file_err.pdf_or_photo": "❌ Iltimos, PDF yoki rasm koʻrinishida yuboring.",
     "file_err.size": "❌ Fayl juda katta (maksimal 20 MB).",
     "file_err.expected": "❌ Iltimos, fayl yoki rasm yuboring.",
-    "err.phone": "❌ Bu telefon raqamiga oʻxshamaydi. Masalan: <code>+998901234567</code>",
+    "err.phone": "❌ Bu telefon raqamiga oʻxshamaydi. Masalan: <code>+998901234567</code>\nXorijiy raqam: <b>+</b> va davlat kodi bilan yozing, masalan <code>+77011234567</code>.",
     "err.foreign_contact": "❌ Iltimos, tugma orqali <b>oʻz</b> raqamingizni yuboring.",
     "err.name_part": "❌ Faqat harflar (2–64), masalan: <i>Karimov</i>, <i>Karim oʻgʻli</i>.",
     "err.group_not_found": "❌ «{query}» guruhi yoʻq. Roʻyxatdan tanlang.",
@@ -227,21 +265,6 @@ TEXTS: dict[str, str] = {
     ),
     "cert.mine_tip": "Har bir sertifikatni xodimlar tekshiradi. Natija haqida sizga xabar keladi.",
     "cert.pick_type": "🏆 <b>Yangi sertifikat</b>\n\nQaysi sertifikat?",
-    "cert.ask.ielts": "<b>Umumiy ballingizni</b> (overall band score) yuboring.\n<i>Masalan: 6.5</i>",
-    "cert.ask.toefl": "<b>Umumiy ballingizni</b> yuboring (0–120).\n<i>Masalan: 95</i>",
-    "cert.ask.sat": "<b>Umumiy ballingizni</b> yuboring (400–1600).\n<i>Masalan: 1350</i>",
-    "cert.ask.duolingo": "<b>Umumiy ballingizni</b> yuboring (10–160).\n<i>Masalan: 120</i>",
-    "cert.ask.cefr": "<b>Darajangizni</b> tanlang.",
-    "cert.ask.national": "<b>Fan va darajani</b> yozing.\n<i>Masalan: Matematika A+</i>",
-    "cert.ask.olympiad": "<b>Olimpiada yoki mukofot</b> nomini va oʻrningizni yozing.\n<i>Masalan: Viloyat matematika olimpiadasi, 1-oʻrin</i>",
-    "cert.ask.other": "<b>Sertifikat nomi va natijasini</b> yozing.\n<i>Masalan: Cambridge C1 Advanced, A</i>",
-    "cert.err.ielts": "❌ IELTS bali 0 dan 9 gacha, 0.5 qadam bilan boʻladi. Masalan: <code>6.5</code>.",
-    "cert.err.toefl": "❌ TOEFL iBT bali 0 dan 120 gacha butun son. Masalan: <code>95</code>.",
-    "cert.err.sat": "❌ SAT bali 400 dan 1600 gacha, 10 qadam bilan boʻladi. Masalan: <code>1350</code>.",
-    "cert.err.duolingo": "❌ Duolingo bali 10 dan 160 gacha, 5 qadam bilan boʻladi. Masalan: <code>120</code>.",
-    "cert.err.cefr": "❌ Darajani tugmalardan tanlang: A1, A2, B1, B2, C1 yoki C2.",
-    "cert.err.description": "❌ Qisqacha yozing: 3–100 ta belgi.",
-    "cert.err.type_text": "❌ Iltimos, matn bilan yozing.",
     "cert.err.file_type": "❌ Sertifikatni PDF yoki rasm sifatida yuboring.",
     "cert.err.pdf_after_photos": "❌ Yo bitta PDF, yo rasmlar yuboring. Oxirgi rasmdan keyin «Tayyor»ni bosing.",
     "cert.ask_files": (

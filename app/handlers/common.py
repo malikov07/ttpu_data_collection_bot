@@ -20,10 +20,11 @@ from app.callbacks import LangCb
 from app.commands import set_user_commands
 from app.config import Settings
 from app.db import repo
-from app.db.models import Language, StaffRole, User, utcnow
+from app.db.models import OPTIONAL_DOCUMENTS, Language, StaffRole, User, utcnow
 from app.db.repo import Access
 from app.handlers.ui import delete_quietly, drop_screen, screen
 from app.i18n import LANGUAGE_PROMPT, Translator, menu_buttons, variants
+from app.services.documents import PAGED
 from app.services.passwords import DUMMY_HASH, verify_password
 from app.states import LoginStates
 from app.views import render_roles
@@ -55,6 +56,8 @@ async def show_main_menu(
             text = _("welcome.staff", name=escape(name), roles=render_roles(_, access, groups))
         elif student:
             text = _("welcome.back", name=escape(student.first_name or student.full_name))
+            if any(student.document(kind) is None for kind in PAGED if kind not in OPTIONAL_DOCUMENTS):
+                text += "\n\n" + _("mydocs.reminder")
         else:
             await message.answer(_("welcome.new"), reply_markup=kb.consent_kb(_))
             return

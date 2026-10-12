@@ -68,12 +68,22 @@ class MRZData:
     expiry_date: date
     last_name: str
     first_name: str
-    personal_number: str | None  # PINFL for Uzbekistan (14 digits)
+    personal_number: str | None  # 14 digits (the PINFL on Uzbek documents)
     lines: list[str] = field(default_factory=list)
 
     @property
     def is_passport(self) -> bool:
         return self.document_code.startswith("P")
+
+    @property
+    def pinfl(self) -> str | None:
+        """Only Uzbek documents carry a PINFL; other states use the field differently."""
+        return self.personal_number if self.issuing_state == "UZB" else None
+
+    @property
+    def needs_front(self) -> bool:
+        """TD1 ID cards have the photo on the other side; TD2 cards have both on one side."""
+        return self.format == "TD1"
 
 
 # ------------------------------------------------------------------ field repair
@@ -139,6 +149,8 @@ def _names(field_: str) -> tuple[str, str]:
     while tokens and (filler_noise(tokens[-1]) or (len(tokens) > 1 and len(tokens[-1]) == 1)):
         tokens.pop()
     first = " ".join(tokens).strip()
+    if not last and first:  # one name only, written as the given name: "<<SITI"
+        last, first = first, ""
     if not re.fullmatch(r"[A-Z ]{2,}", last) or (first and not re.fullmatch(r"[A-Z ]+", first)):
         raise MRZError("names")
     return last, first

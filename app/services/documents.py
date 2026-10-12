@@ -21,13 +21,17 @@ WORD_MIMES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "application/vnd.oasis.opendocument.text",
 }
+CERTIFICATE_MIMES = IMAGE_MIMES | {PDF_MIME}
+# Documents sent as one file or as photos of their pages. A student who registered
+# before one of them was added to the form can send it later, from «My profile».
+PAGED = (DocumentKind.CV, DocumentKind.ADDRESS, DocumentKind.TEMP_ADDRESS, DocumentKind.SCHOOL_CERT, DocumentKind.MEDICAL)
 # Passports and photos must be images: they are read / checked automatically.
 ALLOWED: dict[DocumentKind, set[str]] = {
     DocumentKind.PASSPORT: IMAGE_MIMES,
     DocumentKind.PHOTO: IMAGE_MIMES,
     DocumentKind.CV: IMAGE_MIMES | {PDF_MIME} | WORD_MIMES,
+    **{kind: CERTIFICATE_MIMES for kind in PAGED if kind != DocumentKind.CV},
 }
-CERTIFICATE_MIMES = IMAGE_MIMES | {PDF_MIME}
 
 
 class FileRejected(Exception):

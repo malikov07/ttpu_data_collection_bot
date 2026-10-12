@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from sqlalchemy import and_, exists, func, not_, or_, select
 
 from app.db import repo
-from app.db.models import AuditLog, DocType, Document, DocumentKind, Gender, Group, Student, User
+from app.db.models import REQUIRED_DOCUMENTS, AuditLog, DocType, Document, DocumentKind, Gender, Group, Student, User
 from app.services import vision
 from app.services.documents import ALLOWED, IMAGE_MIMES, MAX_FILE_MB, fetch_file, upload_path
 from app.services.export import students_xlsx
@@ -63,7 +63,7 @@ def filtered_query(user: StaffUser, *, q: str | None, group_id: int | None, gend
             conds.append(func.coalesce(Student.pinfl, "").contains(digits, autoescape=True))
         stmt = stmt.where(or_(*conds))
     if docs:
-        complete = and_(_has(DocumentKind.PASSPORT), _has(DocumentKind.PHOTO), _has(DocumentKind.CV))
+        complete = and_(*(_has(kind) for kind in REQUIRED_DOCUMENTS))
         stmt = stmt.where(complete if docs == "complete" else not_(complete))
     return stmt
 
